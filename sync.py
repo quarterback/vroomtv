@@ -44,11 +44,9 @@ def sync_all() -> dict:
         if not url or not dest:
             results[sport] = "skipped (not configured)"
             continue
-        if not token:
-            results[sport] = f"skipped (set {token_env})"
-            continue
         try:
-            req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+            headers = {"Authorization": f"Bearer {token}"} if token else {}
+            req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=120) as resp:
                 os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
                 fd, tmp = tempfile.mkstemp(dir=os.path.dirname(dest) or ".", suffix=".tmp")
