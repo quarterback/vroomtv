@@ -10,19 +10,19 @@ primary_region = 'sjc'
   dockerfile = 'Dockerfile'
 
 [env]
-  BASEBALL_DB = '/data/o27v2.db'
+  # No volume: sync.py re-pulls every sim's /export/db feed seconds after
+  # boot and every SYNC_INTERVAL_MIN minutes, so the DB copies can live on
+  # ephemeral disk. Pair each *_SYNC_TOKEN secret on this app with that
+  # sim's EXPORT_TOKEN secret. A missing/unreachable feed shows a
+  # placeholder.
+  BASEBALL_DB = '/app/data/o27v2.db'
   BASEBALL_SYNC_URL = 'https://superinnin.gs/export/db'
   PORT = '8080'
   SYNC_INTERVAL_MIN = '30'
-  TENNIS_DB = '/data/tennis.db'
+  TENNIS_DB = '/app/data/tennis.db'
   TENNIS_SYNC_URL = 'https://pctennis.xyz/export/db'
-  VIPERBALL_DB = '/data/viperball.db'
+  VIPERBALL_DB = '/app/data/viperball.db'
   VIPERBALL_SYNC_URL = 'https://viperball.xyz/export/db'
-
-[[mounts]]
-  source = 'vroomtv_data'
-  destination = '/data'
-  initial_size = '1gb'
 
 [http_service]
   internal_port = 8080
