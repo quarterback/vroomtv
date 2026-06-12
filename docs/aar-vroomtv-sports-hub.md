@@ -106,3 +106,18 @@ Switzer (UI, nav, data).
 - Verified in headless Chromium against live test DBs: front, news,
   article, standings, leaders, one game page per sport, plus the strip's
   dropdown filter.
+
+---
+
+## HTTP self-sync (2026-06-12)
+
+The fly-CLI sync script didn't match how the project is operated (no CLI),
+so data flow is now hub-pull over HTTP: each sim gained a token-protected
+`/export/db` route (WAL-safe `sqlite3` backup snapshot; 404 unless
+`EXPORT_TOKEN` is set and matched), and the hub's `sync.py` downloads every
+configured feed to the adapter paths atomically — on a timer
+(`SYNC_INTERVAL_MIN`, default 30 in fly.toml) and via `/sync?token=`.
+Setup is one shared secret set in the Fly dashboard on all four apps.
+Verified end-to-end locally: three sims served exports (404 without token),
+an empty hub pulled all three via `/sync` and the front page went fully
+live without a restart.

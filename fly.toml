@@ -6,12 +6,17 @@ primary_region = "ams"
 
 [env]
   PORT = "8080"
-  # The hub reads each sim's SQLite file read-only from the volume below.
-  # Upload snapshots with `fly sftp shell` → `put <file> /data/<name>.db`.
-  # Any missing file shows a wire-service placeholder, not an error.
+  # The hub reads each sim's SQLite file read-only from the volume below,
+  # and refills those files itself by pulling each sim's /export/db feed
+  # (see sync.py). Set the SYNC_TOKEN secret to the same value as each
+  # sim's EXPORT_TOKEN secret. A missing file shows a placeholder.
   BASEBALL_DB = "/data/o27v2.db"
   VIPERBALL_DB = "/data/viperball.db"
   TENNIS_DB = "/data/tennis.db"
+  BASEBALL_SYNC_URL = "https://superinnin.gs/export/db"
+  VIPERBALL_SYNC_URL = "https://viperball.xyz/export/db"
+  TENNIS_SYNC_URL = "https://pctennis.xyz/export/db"
+  SYNC_INTERVAL_MIN = "30"
 
 [[mounts]]
   source = "vroomtv_data"

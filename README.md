@@ -56,16 +56,24 @@ fly launch --copy-config --no-deploy   # first time: creates the app + volume
 fly deploy
 ```
 
-The env vars point at `/data/*.db` on the app's volume. To load data, run
+**Data flows in by itself.** Each sim exposes a token-protected
+`/export/db` route, and the hub pulls all three feeds every
+`SYNC_INTERVAL_MIN` minutes (default 30) into its volume — no CLI, no
+manual uploads. One-time setup, all in the Fly dashboard (each app →
+Secrets):
 
-```bash
-./scripts/sync-dbs.sh
-```
+1. Pick one secret value. Set it as `EXPORT_TOKEN` on **hybrid-baseball**,
+   **viperball**, and **tennis-team-manager**, and as `SYNC_TOKEN` on
+   **vroomtv**.
+2. Redeploy the three sims (their export routes ship in each repo) and the
+   hub.
 
-from any machine where `fly` is logged in — it pulls each sim's live DB
-straight from its Fly app (resolving baseball's active save automatically)
-and uploads them to the hub's volume. Re-run it whenever you want fresher
-scores; no restart needed. Any sport without a file shows a placeholder.
+That's it. To force an immediate refresh, open
+`https://<your-hub>/sync?token=<SYNC_TOKEN>` in a browser — it reports
+per-sport results. Any unconfigured or unreachable sport shows a
+placeholder, never an error.
+
+(`scripts/sync-dbs.sh` remains as an alternative for fly-CLI users.)
 
 This won't work on static/serverless hosts (Netlify, GitHub Pages, Vercel's
 static mode): the hub is a long-running Flask server that reads SQLite files

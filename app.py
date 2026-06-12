@@ -2,11 +2,24 @@
 from __future__ import annotations
 import os
 from datetime import datetime
-from flask import Flask, Response, render_template, abort
+from flask import Flask, Response, render_template, abort, jsonify, request
 from adapters import baseball, viperball, tennis
 import newsroom
+import sync
 
 app = Flask(__name__)
+sync.start_timer()
+
+
+@app.route("/sync", methods=["GET", "POST"])
+def sync_now():
+    """Manual pull of all feeds. Browser-friendly: /sync?token=<SYNC_TOKEN>."""
+    token = os.environ.get("SYNC_TOKEN")
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
+        or request.args.get("token", "")
+    if not token or supplied != token:
+        abort(404)
+    return jsonify({"results": sync.sync_all(), "last": sync.last_sync()["at"]})
 
 
 def _ticker(per_sport: int = 8) -> list[dict]:
