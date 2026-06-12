@@ -62,9 +62,19 @@ fly deploy
 manual uploads. One-time setup, all in the Fly dashboard (each app →
 Secrets):
 
-1. Pick one secret value. Set it as `EXPORT_TOKEN` on **hybrid-baseball**,
-   **viperball**, and **tennis-team-manager**, and as `SYNC_TOKEN` on
-   **vroomtv**.
+1. Generate a secret per sim and enter it in two places — the sim and the
+   hub:
+
+   | Value | Sim app → secret name | vroomtv → secret name |
+   | --- | --- | --- |
+   | secret #1 | hybrid-baseball → `EXPORT_TOKEN` | `BASEBALL_SYNC_TOKEN` |
+   | secret #2 | viperball → `EXPORT_TOKEN` | `VIPERBALL_SYNC_TOKEN` |
+   | secret #3 | tennis-team-manager → `EXPORT_TOKEN` | `TENNIS_SYNC_TOKEN` |
+   | secret #4 | — | `SYNC_TOKEN` (guards the manual `/sync` URL) |
+
+   (Using one value everywhere also works: set it as each sim's
+   `EXPORT_TOKEN` and as `SYNC_TOKEN` on vroomtv — the per-sport tokens
+   fall back to `SYNC_TOKEN`.)
 2. Redeploy the three sims (their export routes ship in each repo) and the
    hub.
 

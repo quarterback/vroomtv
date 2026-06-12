@@ -6,7 +6,11 @@ adapter reads (BASEBALL_DB etc.), atomically, so a sync can run while pages
 are being served.
 
 Config (env):
-  SYNC_TOKEN            shared secret; must match each sim's EXPORT_TOKEN
+  BASEBALL_SYNC_TOKEN   matches EXPORT_TOKEN on the baseball app
+  VIPERBALL_SYNC_TOKEN  matches EXPORT_TOKEN on the viperball app
+  TENNIS_SYNC_TOKEN     matches EXPORT_TOKEN on the tennis app
+  SYNC_TOKEN            guards the manual /sync route; also the fallback
+                        for any per-sport token left unset
   BASEBALL_SYNC_URL     e.g. https://superinnin.gs/export/db
   VIPERBALL_SYNC_URL    e.g. https://viperball.xyz/export/db
   TENNIS_SYNC_URL       e.g. https://pctennis.xyz/export/db
@@ -23,9 +27,9 @@ import urllib.request
 log = logging.getLogger("vroomtv.sync")
 
 FEEDS = [
-    ("baseball", "BASEBALL_SYNC_URL", "BASEBALL_DB"),
-    ("viperball", "VIPERBALL_SYNC_URL", "VIPERBALL_DB"),
-    ("tennis", "TENNIS_SYNC_URL", "TENNIS_DB"),
+    ("baseball", "BASEBALL_SYNC_URL", "BASEBALL_DB", "BASEBALL_SYNC_TOKEN"),
+    ("viperball", "VIPERBALL_SYNC_URL", "VIPERBALL_DB", "VIPERBALL_SYNC_TOKEN"),
+    ("tennis", "TENNIS_SYNC_URL", "TENNIS_DB", "TENNIS_SYNC_TOKEN"),
 ]
 
 _last: dict = {"at": None, "results": {}}
@@ -33,12 +37,15 @@ _last: dict = {"at": None, "results": {}}
 
 def sync_all() -> dict:
     """Fetch every configured feed. Returns {sport: 'ok'|'skipped'|error}."""
-    token = os.environ.get("SYNC_TOKEN", "")
     results = {}
-    for sport, url_env, db_env in FEEDS:
+    for sport, url_env, db_env, token_env in FEEDS:
         url, dest = os.environ.get(url_env), os.environ.get(db_env)
+        token = os.environ.get(token_env) or os.environ.get("SYNC_TOKEN", "")
         if not url or not dest:
             results[sport] = "skipped (not configured)"
+            continue
+        if not token:
+            results[sport] = f"skipped (set {token_env})"
             continue
         try:
             req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
