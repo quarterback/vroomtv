@@ -12,19 +12,19 @@
 
 <div class="strip" id="strip">
   <div class="strip-filter">
-    <select id="league-filter" aria-label="Filter scoreboard by league">
+    <select id="league-filter" aria-label="Filter scoreboard by sport">
       <option value="">Top Events</option>
-      {% for sport, league in ticker_leagues %}
-      <option value="{{ sport }}|{{ league }}">{{ league }}</option>
+      {% for sport in ticker_leagues | map(attribute=0) | unique %}
+      <option value="{{ sport }}">{{ sport }}</option>
       {% endfor %}
     </select>
   </div>
   <div class="strip-scroll" id="strip-scroll">
     {% for sport, league in ticker_leagues %}
-    <div class="strip-group" data-league="{{ sport }}|{{ league }}">
+    <div class="strip-group" data-sport="{{ sport }}">
       <div class="strip-label">{{ league }}</div>
       {% for g in ticker if g.league == league %}
-      <a class="strip-card" href="{{ g.url }}">
+      <a class="strip-card" {% if g.url %}href="{{ g.url }}"{% endif %}>
         <span class="s-status">{{ g.note }}</span>
         <span class="s-row {{ 'won' if g.away_score > g.home_score else 'lost' }}">
           <span class="s-team">{{ g.away }}</span><span class="s-score">{{ g.away_score }}</span>
@@ -66,7 +66,7 @@
   var groups = document.querySelectorAll('.strip-group');
   filter.addEventListener('change', function () {
     groups.forEach(function (g) {
-      g.style.display = (!filter.value || g.dataset.league === filter.value) ? '' : 'none';
+      g.style.display = (!filter.value || g.dataset.sport === filter.value) ? '' : 'none';
     });
     document.getElementById('strip-scroll').scrollLeft = 0;
   });
