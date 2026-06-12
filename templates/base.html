@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Rocky Mountain News — Sports{% endblock %}</title>
+  <meta name="description" content="A fictional website for a suite of computer simulation games.">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ self.title() }}">
+  <meta name="twitter:description" content="A fictional website for a suite of computer simulation games.">
+  <meta name="twitter:image" content="{{ url_for('static', filename='favicon.svg', _external=True) }}">
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800&f[]=zodiak@400,500,700,800,900&f[]=boska@700,900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
