@@ -45,6 +45,25 @@ optional.
 > `o27v2/saves/<save-hash>.db` rather than `o27v2/o27v2.db` — point
 > `BASEBALL_DB` at the actual file.
 
+## Deploying
+
+The repo ships a `Dockerfile` and `fly.toml` (mirroring the three sims,
+which all run on Fly). From the repo root:
+
+```bash
+fly launch --copy-config --no-deploy   # first time: creates the app + volume
+fly deploy
+```
+
+The env vars point at `/data/*.db` on the app's volume. Upload a snapshot
+of each sim's DB with `fly sftp shell` → `put viperball.db /data/viperball.db`
+(same for the other two); refresh them whenever you want newer scores. Any
+sport without a file uploaded shows a placeholder.
+
+This won't work on static/serverless hosts (Netlify, GitHub Pages, Vercel's
+static mode): the hub is a long-running Flask server that reads SQLite files
+from local disk.
+
 ## Routes
 
 | Route | Page |
