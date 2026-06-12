@@ -51,18 +51,34 @@ def _load_leagues(conn: sqlite3.Connection) -> list[dict]:
 
 
 _BOX_KEY = re.compile(r"^(.+)__w(\d+)__(.+)$")
-_college_cache: dict = {"key": None, "leagues": []}
+_college_cache: dict = {"key": None, "leagues": [], "building": False}
 
 
 def _college_leagues(path: str) -> list[dict]:
     """Parse all college box scores into per-session leagues, cached on the
-    DB file's mtime."""
+    DB file's mtime.
+
+    Stale-while-revalidate: when the DB changes and a previous result
+    exists, serve it immediately and rebuild in a background thread — the
+    full parse is hundreds of ~200KB JSON blobs and must never run on a
+    visitor's request."""
     try:
         cache_key = (path, os.path.getmtime(path))
     except OSError:
         return []
     if _college_cache["key"] == cache_key:
         return _college_cache["leagues"]
+    if _college_cache["leagues"] and _college_cache["key"] is not None:
+        if not _college_cache["building"]:
+            _college_cache["building"] = True
+            import threading
+            threading.Thread(target=_rebuild_college, args=(path, cache_key),
+                             daemon=True, name="vb-college-rebuild").start()
+        return _college_cache["leagues"]
+    return _rebuild_college(path, cache_key)
+
+
+def _rebuild_college(path: str, cache_key) -> list[dict]:
     sessions: dict[str, dict] = {}
     try:
         conn = _conn(path)
@@ -71,6 +87,7 @@ def _college_leagues(path: str) -> list[dict]:
         ).fetchall()
         conn.close()
     except Exception:
+        _college_cache["building"] = False
         return []
     for r in rows:
         m = _BOX_KEY.match(r["save_key"])
@@ -134,6 +151,7 @@ def _college_leagues(path: str) -> list[dict]:
                         "teams": teams, "leaders": leaders})
     _college_cache["key"] = cache_key
     _college_cache["leagues"] = leagues
+    _college_cache["building"] = False
     return leagues
 
 

@@ -298,6 +298,11 @@ def _tennis_leader_boards() -> list[dict]:
         if boards:
             leagues.append({"label": u["label"], "tier": "College", "boards": boards})
             portal_labels.add(u["label"])
+    # The DB-derived fallback parses every dual's lines_json — skip it
+    # entirely when the portal covers the NCAA divisions and there's no
+    # GTT league it would be needed for.
+    if portal_labels and not tennis.has_gtt():
+        return leagues
     for lg in tennis.get_stat_leaders():
         if lg["league"] in portal_labels:
             continue
