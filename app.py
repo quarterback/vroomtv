@@ -109,7 +109,7 @@ def _ticker(per_sport: int = 8) -> list[dict]:
             "away": g["away_name"][:3].upper(), "home": g["home_name"][:3].upper(),
             "away_score": g["away_score"], "home_score": g["home_score"],
             "note": (g.get("note") or "Final").title(),
-            "url": None,
+            "url": f"/game/baseball/{g['tier']}/{g['id']}",
         })
     for g in viperball.get_recent_scores(limit_per_league=per_sport):
         items.append({
@@ -147,8 +147,9 @@ def inject_globals():
 
 
 @app.route("/art/<int:seed>.svg")
-def art(seed: int):
-    resp = Response(newsroom.pixel_art_svg(seed), mimetype="image/svg+xml")
+@app.route("/art/<sport>/<int:seed>.svg")
+def art(seed: int, sport: str = ""):
+    resp = Response(newsroom.pixel_art_svg(seed, sport), mimetype="image/svg+xml")
     resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
 
@@ -175,7 +176,21 @@ def index():
 
 @app.route("/news")
 def news():
-    return render_template("news.html", articles=baseball.get_news(limit=50))
+    """News desk: real gazette articles when available, plus a wire
+    section of mechanical game recaps for sports the gazette doesn't
+    cover yet (viperball, tennis)."""
+    baseball_scores = baseball.get_recent_scores()
+    viperball_scores = viperball.get_recent_scores()
+    tennis_scores = tennis.get_recent_scores()
+    wire = newsroom.build_wire(baseball_scores, viperball_scores,
+                               tennis_scores, briefs=30)
+    by_sport = {"Baseball": [], "Viperball": [], "Tennis": []}
+    items = ([wire["lead"]] if wire.get("lead") else []) + wire.get("briefs", [])
+    for it in items:
+        by_sport.setdefault(it["sport"], []).append(it)
+    return render_template("news.html",
+                           articles=baseball.get_news(limit=50),
+                           wire_by_sport=by_sport)
 
 
 @app.route("/news/<slate_date>/<voice_id>")
@@ -186,25 +201,138 @@ def article(slate_date: str, voice_id: str):
     return render_template("article.html", a=a)
 
 
+def _pick(catalog: list[dict]) -> tuple:
+    """Resolve ?sport=&league= against a [{sport, leagues:[{label,...}]}]
+    catalog: ESPN-style — you always look at exactly one league."""
+    sport = request.args.get("sport", "")
+    entry = next((c for c in catalog if c["sport"] == sport),
+                 catalog[0] if catalog else None)
+    if not entry:
+        return None, None
+    league = request.args.get("league", "")
+    sel = next((l for l in entry["leagues"] if l["label"] == league),
+               entry["leagues"][0])
+    return entry, sel
+
+
 @app.route("/standings")
 def standings():
-    return render_template(
-        "standings.html",
-        baseball_standings=baseball.get_standings(),
-        viperball_standings=viperball.get_standings(),
-        tennis_standings=tennis.get_standings(),
-    )
+    catalog = []
+    bb = baseball.get_standings()
+    if bb:
+        catalog.append({"sport": "Baseball", "leagues": [
+            {"label": "O27 League", "kind": "baseball", "tier": "Pro", "rows": bb}]})
+    vb = viperball.get_standings()
+    if vb:
+        catalog.append({"sport": "Viperball", "leagues": [
+            {"label": lg["league"], "kind": "viperball", "tier": lg["tier"],
+             "teams": lg["teams"]} for lg in vb]})
+    tn = tennis.get_standings()
+    if tn:
+        catalog.append({"sport": "Tennis", "leagues": [
+            {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
+             "teams": lg["teams"]} for lg in tn]})
+    portal = tennis.get_portal_universes()
+    if portal:
+        # Portal rankings replace the basic W-L for NCAA divisions with the
+        # season's power index / record / APR / FQI shape the data portal serves.
+        sport = next((c for c in catalog if c["sport"] == "Tennis"), None)
+        if sport is None:
+            sport = {"sport": "Tennis", "leagues": []}
+            catalog.append(sport)
+        portal_labels = set()
+        for u in portal:
+            sport["leagues"].insert(0, {
+                "label": u["label"], "kind": "tennis_portal", "tier": "College",
+                "rankings": u.get("live_rankings", []),
+                "standings_leaders": u.get("standings_leaders", []),
+                "has_live_results": u.get("has_live_results", False),
+            })
+            portal_labels.add(u["label"])
+        # Drop now-redundant basic NCAA leagues.
+        sport["leagues"] = [l for l in sport["leagues"]
+                            if not (l["kind"] == "tennis" and l["label"] in portal_labels)]
+    for c in catalog:
+        c["leagues"].sort(key=lambda l: l["tier"] != "Pro")  # Pro first
+    entry, sel = _pick(catalog)
+    return render_template("standings.html", catalog=catalog, entry=entry, sel=sel)
 
 
 @app.route("/leaders")
 def leaders():
-    return render_template(
-        "leaders.html",
-        baseball_batting=baseball.get_batting_leaders(),
-        baseball_pitching=baseball.get_pitching_leaders(),
-        viperball_leaders=viperball.get_stat_leaders(),
-        tennis_leaders=tennis.get_stat_leaders(),
-    )
+    catalog = []
+    batting, pitching = baseball.get_batting_leaders(), baseball.get_pitching_leaders()
+    if batting or pitching:
+        catalog.append({"sport": "Baseball", "leagues": [
+            {"label": "O27 League", "kind": "baseball", "tier": "Pro",
+             "batting": batting, "pitching": pitching}]})
+    vb = viperball.get_stat_leaders()
+    if vb:
+        catalog.append({"sport": "Viperball", "leagues": [
+            {"label": lg["league"], "kind": "viperball", "tier": lg["tier"],
+             "leaders": lg["leaders"]} for lg in vb]})
+    tn = tennis.get_stat_leaders()
+    if tn:
+        catalog.append({"sport": "Tennis", "leagues": [
+            {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
+             "leaders": lg["leaders"]} for lg in tn]})
+    portal = tennis.get_portal_universes()
+    if portal:
+        sport = next((c for c in catalog if c["sport"] == "Tennis"), None)
+        if sport is None:
+            sport = {"sport": "Tennis", "leagues": []}
+            catalog.append(sport)
+        portal_labels = set()
+        for u in portal:
+            sport["leagues"].insert(0, {
+                "label": u["label"], "kind": "tennis_portal", "tier": "College",
+                "player_leaders": u.get("player_leaders", []),
+                "top_prospects": u.get("top_prospects", []),
+            })
+            portal_labels.add(u["label"])
+        sport["leagues"] = [l for l in sport["leagues"]
+                            if not (l["kind"] == "tennis" and l["label"] in portal_labels)]
+    for c in catalog:
+        c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
+    entry, sel = _pick(catalog)
+    return render_template("leaders.html", catalog=catalog, entry=entry, sel=sel)
+
+
+def _duel(stats_a: dict, stats_b: dict, pairs: list) -> list[dict]:
+    """ABC-style head-to-head bars: [{label, a, b, a_pct}] for stats
+    present on both sides."""
+    out = []
+    for label, key in pairs:
+        a, b = stats_a.get(key), stats_b.get(key)
+        if a is None and b is None:
+            continue
+        a, b = float(a or 0), float(b or 0)
+        total = a + b
+        out.append({"label": label, "a": f"{a:g}", "b": f"{b:g}",
+                    "a_pct": round(100 * a / total) if total else 50})
+    return out
+
+
+@app.route("/game/baseball/<tier>/<int:game_id>")
+def game_baseball_tier(tier: str, game_id: int):
+    if tier not in ("college", "youth", "wc"):
+        abort(404)
+    detail = baseball.get_extra_game_detail(tier, game_id)
+    if not detail:
+        abort(404)
+    game = detail["game"]
+
+    def _tot(team_id):
+        side = [b for b in detail["batters"] if b["team_id"] == team_id]
+        return {k: sum(b.get(col, 0) for b in side) for k, col in
+                (("runs", "runs"), ("hits", "hits"), ("hr", "hr"),
+                 ("bb", "bb"), ("k", "k"))}
+    detail["duel"] = _duel(
+        _tot(game["away_team_id"]), _tot(game["home_team_id"]),
+        [("Runs", "runs"), ("Hits", "hits"), ("Home runs", "hr"),
+         ("Walks", "bb"), ("Strikeouts", "k")])
+    detail["ladder"] = []
+    return render_template("game_baseball.html", **detail)
 
 
 @app.route("/game/baseball/<int:game_id>")
@@ -212,6 +340,21 @@ def game_baseball(game_id: int):
     detail = baseball.get_game_detail(game_id)
     if not detail:
         abort(404)
+    g = detail["game"]
+
+    def _tot(team_id):
+        side = [b for b in detail["batters"] if b["team_id"] == team_id]
+        return {k: sum(b[col] for b in side) for k, col in
+                (("runs", "runs"), ("hits", "hits"), ("hr", "hr"),
+                 ("bb", "bb"), ("k", "k"))}
+    detail["duel"] = _duel(
+        _tot(g["away_team_id"]), _tot(g["home_team_id"]),
+        [("Runs", "runs"), ("Hits", "hits"), ("Home runs", "hr"),
+         ("Walks", "bb"), ("Strikeouts", "k")])
+    rows = baseball.get_standings()
+    divs = {t["division"] for t in rows
+            if t["name"] in (g["home_name"], g["away_name"])}
+    detail["ladder"] = [t for t in rows if t["division"] in divs]
     return render_template("game_baseball.html", **detail)
 
 
@@ -220,6 +363,77 @@ def game_viperball(save_key: str, week: int, matchup_key: str):
     detail = viperball.get_game_detail(save_key, week, matchup_key)
     if not detail:
         abort(404)
+    r = detail.get("result") or {}
+    stats = r.get("stats", {})
+    detail["duel"] = _duel(
+        stats.get("away", {}), stats.get("home", {}),
+        [("Total yards", "total_yards"), ("Rushing yards", "rushing_yards"),
+         ("Kick pass yards", "kick_pass_yards"), ("Lateral yards", "lateral_yards"),
+         ("Total plays", "total_plays"), ("Tackles", "tackles"),
+         ("Fumbles", "fumbles")])
+    scorers = {"home": [], "away": []}
+    for side in ("home", "away"):
+        for p in r.get("player_stats", {}).get(side, []):
+            tds = p.get("tds", p.get("touchdowns", p.get("game_touchdowns", 0)))
+            if tds:
+                scorers[side].append({"name": p.get("name", ""), "tds": tds})
+        scorers[side].sort(key=lambda s: -s["tds"])
+    detail["scorers"] = scorers
+    drives = r.get("drive_summary") or []
+    total = sum(max(d.get("yards", 0), 3) for d in drives) or 1
+    x, chart = 0.0, []
+    for d in drives:
+        w = 100 * max(d.get("yards", 0), 3) / total
+        notes = []
+        if d.get("bonus_drive"):
+            notes.append("bonus drive")
+        for t in d.get("timeouts") or []:
+            notes.append(f"timeout ({t.get('team_name', t.get('team', ''))}, "
+                         f"{str(t.get('category', '')).replace('_', ' ')})")
+        chart.append({
+            "x": round(x, 2), "w": round(max(w - 0.4, 0.3), 2),
+            "team": d.get("team", "home"),
+            "td": "touchdown" in str(d.get("result", "")),
+            "bonus": bool(d.get("bonus_drive")),
+            "title": f"Q{d.get('quarter', '?')} · {d.get('team', '')} · "
+                     f"{d.get('plays', 0)} plays, {d.get('yards', 0)} yds — "
+                     f"{str(d.get('result', '')).replace('_', ' ')}"
+                     + (" · " + ", ".join(notes) if notes else ""),
+        })
+        x += w
+    detail["drive_chart"] = chart
+    # Score worm: relative lead curve from per-drive running scores.
+    # Falls back to derived-from-results if the sim hasn't been updated
+    # to stamp the score on each drive yet.
+    worm = [{"x": 0, "lead": 0, "label": "Kickoff"}]
+    running_h = running_a = 0
+    for i, d in enumerate(drives, 1):
+        h, a = d.get("home_score_after"), d.get("away_score_after")
+        if h is None or a is None:
+            # Fallback: infer points from the drive result.
+            if "touchdown" in str(d.get("result", "")):
+                points = 6
+            elif d.get("result") == "successful_kick":
+                points = 3
+            else:
+                points = 0
+            if d.get("team") == "home":
+                running_h += points
+            else:
+                running_a += points
+            h, a = running_h, running_a
+        worm.append({"x": round(i * 100 / max(len(drives), 1), 2),
+                     "lead": float(h) - float(a),
+                     "label": f"Q{d.get('quarter', '?')}  {a:g}–{h:g}"})
+    if any(p["lead"] for p in worm):
+        peak = max(abs(p["lead"]) for p in worm) or 1
+        for p in worm:
+            p["y"] = round(50 - 35 * p["lead"] / peak, 2)
+        detail["worm"] = {"points": worm, "peak": peak,
+                          "path": " ".join(f"{p['x']},{p['y']}" for p in worm)}
+    detail["ladder"] = next(
+        (lg["teams"] for lg in viperball.get_standings()
+         if lg["save_key"] == save_key), [])
     return render_template("game_viperball.html", **detail)
 
 
@@ -230,4 +444,28 @@ def game_tennis(source: str, dual_id: int):
     detail = tennis.get_game_detail(source, dual_id)
     if not detail:
         abort(404)
+    label = detail.get("league_name") if source == "gtt" else \
+        f"{detail.get('division', '').upper()} {detail.get('gender', '').title()}"
+    detail["ladder"] = next(
+        (lg["teams"] for lg in tennis.get_standings()
+         if lg["league"] == label), [])[:25]
+    # Lines-won / sets-won / games-won — aggregate from each dual line so
+    # we can show ABC-style head-to-head bars for the match.
+    lines = detail.get("lines") or []
+    h_lines = a_lines = h_sets = a_sets = h_games = a_games = 0
+    for line in lines:
+        if not line.get("completed"):
+            continue
+        won = bool(line.get("home_won"))
+        h_lines += int(won); a_lines += int(not won)
+        for s in line.get("sets") or []:
+            try:
+                hg, ag = int(s[0]), int(s[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            h_games += hg; a_games += ag
+            h_sets += int(hg > ag); a_sets += int(ag > hg)
+    detail["duel"] = _duel({"l": h_lines, "s": h_sets, "g": h_games},
+                           {"l": a_lines, "s": a_sets, "g": a_games},
+                           [("Lines won", "l"), ("Sets won", "s"), ("Games won", "g")])
     return render_template("game_tennis.html", **detail)

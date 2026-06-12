@@ -1,14 +1,20 @@
 {% extends "base.html" %}
+{% from "_filters.html" import filter_bar %}
 {% block title %}Standings — Rocky Mountain News{% endblock %}
 {% block content %}
-<h1 class="page-title">Standings</h1>
+<div class="page-head">
+  <h1 class="page-title">Standings</h1>
+  {{ filter_bar(catalog, entry, sel, 'standings') }}
+</div>
 
+{% if not sel %}
+<div class="empty-note">No standings yet — the sims haven't filed any results.</div>
+
+{% elif sel.kind == 'baseball' %}
 <section>
-  <h2 class="sect">Baseball</h2>
-  {% if not baseball_standings %}<div class="empty-note">No data</div>
-  {% else %}
+  <h2 class="sect">{{ sel.label }}</h2>
   <div class="table-grid">
-    {% for league, lteams in baseball_standings | groupby('league') %}
+    {% for league, lteams in sel.rows | groupby('league') %}
     {% for division, teams in lteams | groupby('division') %}
     <table class="data-table">
       <thead><tr><th>{{ division }}</th><th class="n">W</th><th class="n">L</th><th class="n">Pct</th></tr></thead>
@@ -22,45 +28,84 @@
     {% endfor %}
     {% endfor %}
   </div>
+</section>
+
+{% elif sel.kind == 'viperball' %}
+{% set kp = sel.teams and sel.teams[0].get('adj_o') is not none %}
+<section>
+  <h2 class="sect">{{ sel.label }}{% if kp %} &middot; KenPom{% endif %}</h2>
+  {% if kp %}
+  <table class="data-table full">
+    <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">AdjO</th><th class="n">AdjD</th><th class="n">EM</th><th class="n">Tempo</th><th class="n">Luck</th></tr></thead>
+    <tbody>
+    {% for t in sel.teams | sort(attribute='em', reverse=true) %}
+    <tr><td class="t">{{ t.team_name }}</td>
+        <td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td>
+        <td class="n">{{ '%.1f' | format(t.adj_o or 0) }}</td>
+        <td class="n">{{ '%.1f' | format(t.adj_d or 0) }}</td>
+        <td class="n"><b>{{ '%+.1f' | format(t.em or 0) }}</b></td>
+        <td class="n">{{ '%.1f' | format(t.tempo or 0) }}</td>
+        <td class="n">{{ '%+.3f' | format(t.luck or 0) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <table class="data-table full">
+    <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">T</th><th class="n">Strk</th></tr></thead>
+    <tbody>
+    {% for t in sel.teams %}
+    <tr><td class="t">{{ t.team_name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td><td class="n">{{ t.ties }}</td>
+        <td class="n">{% if t.streak %}{{ t.streak_type }}{{ t.streak }}{% else %}&mdash;{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
   {% endif %}
 </section>
 
+{% elif sel.kind == 'tennis_portal' %}
 <section>
-  <h2 class="sect">Viperball</h2>
-  {% if not viperball_standings %}<div class="empty-note">No data</div>
-  {% else %}
-  <div class="table-grid wide">
-    {% for lg in viperball_standings %}
-    <table class="data-table">
-      <thead><tr><th>{{ lg.league }}</th><th class="n">W</th><th class="n">L</th><th class="n">T</th><th class="n">Strk</th></tr></thead>
-      <tbody>
-      {% for t in lg.teams %}
-      <tr><td class="t">{{ t.team_name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td><td class="n">{{ t.ties }}</td>
-          <td class="n">{% if t.streak %}{{ t.streak_type }}{{ t.streak }}{% else %}&mdash;{% endif %}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <h2 class="sect">{{ sel.label }} &middot; Power Index {% if not sel.has_live_results %}<span class="meta">(preseason)</span>{% endif %}</h2>
+  <table class="data-table full">
+    <thead><tr><th>Rk</th><th>School</th><th>Conf</th><th class="n">Rec</th><th class="n">PI</th><th class="n">APR</th><th class="n">FQI</th><th class="n">Move</th></tr></thead>
+    <tbody>
+    {% for r in sel.rankings %}
+    <tr><td class="n"><b>{{ r.rk }}</b></td>
+        <td class="t">{{ r.school }}</td>
+        <td>{{ r.conf }}</td>
+        <td class="n">{{ r.rec }}</td>
+        <td class="n"><b>{{ '%.1f' | format(r.pi or 0) }}</b></td>
+        <td class="n">{{ '%.1f' | format(r.apr or 0) }}</td>
+        <td class="n">{{ '%.1f' | format(r.fqi or 0) }}</td>
+        <td class="n">{% if r.move > 0 %}<span style="color:#0a7a3b">▲ {{ r.move }}</span>{% elif r.move < 0 %}<span style="color:#cf2b2b">▼ {{ -r.move }}</span>{% else %}&mdash;{% endif %}</td></tr>
     {% endfor %}
-  </div>
-  {% endif %}
+    </tbody>
+  </table>
 </section>
+{% if sel.standings_leaders %}
+<section>
+  <h2 class="sect">{{ sel.label }} &middot; Conference leaders</h2>
+  <table class="data-table full">
+    <thead><tr><th>Conference</th><th>Leader</th><th class="n">W</th><th class="n">L</th></tr></thead>
+    <tbody>
+    {% for r in sel.standings_leaders %}
+    <tr><td>{{ r.conf }}</td><td class="t">{{ r.school }}</td><td class="n">{{ r.w }}</td><td class="n">{{ r.l }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
 
+{% elif sel.kind == 'tennis' %}
 <section>
-  <h2 class="sect">Tennis</h2>
-  {% if not tennis_standings %}<div class="empty-note">No data</div>
-  {% else %}
-  <div class="table-grid wide">
-    {% for lg in tennis_standings %}
-    <table class="data-table">
-      <thead><tr><th>{{ lg.league }}</th><th class="n">W</th><th class="n">L</th></tr></thead>
-      <tbody>
-      {% for t in lg.teams %}
-      <tr><td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <h2 class="sect">{{ sel.label }}</h2>
+  <table class="data-table full">
+    <thead><tr><th>School</th><th class="n">W</th><th class="n">L</th></tr></thead>
+    <tbody>
+    {% for t in sel.teams %}
+    <tr><td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
     {% endfor %}
-  </div>
-  {% endif %}
+    </tbody>
+  </table>
 </section>
+{% endif %}
 {% endblock %}

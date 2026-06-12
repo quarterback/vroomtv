@@ -89,7 +89,7 @@ def get_standings() -> list[dict]:
                     franchises[win_fid]["wins"] += 1
                 if lose_fid in franchises:
                     franchises[lose_fid]["losses"] += 1
-            out.append({"league": lg["name"], "source": "gtt",
+            out.append({"league": lg["name"], "source": "gtt", "tier": "Pro",
                         "teams": sorted(franchises.values(), key=lambda t: (-t["wins"], t["losses"]))})
         for s in conn.execute("SELECT id, division, gender FROM seasons ORDER BY id").fetchall():
             label = f"{s['division'].upper()} {s['gender'].title()}"
@@ -109,7 +109,7 @@ def get_standings() -> list[dict]:
                     agg[sch] = {"name": sch, "wins": 0, "losses": 0}
                 agg[sch]["wins"] += r["wins"]
                 agg[sch]["losses"] += r["losses"]
-            out.append({"league": label, "source": "ncaa",
+            out.append({"league": label, "source": "ncaa", "tier": "College",
                         "teams": sorted(agg.values(), key=lambda t: (-t["wins"], t["losses"]))})
         conn.close()
     except Exception:
@@ -117,17 +117,51 @@ def get_standings() -> list[dict]:
     return out
 
 
+_leaders_cache: dict = {"key": None, "leagues": []}
+
+
+def _portal_data() -> dict | None:
+    """The tennis stats portal's JSON export (live rankings via the
+    season's power index, player STR ratings, junior prospects). Returns
+    None when not synced — the basic DB adapter still works."""
+    path = _db_path()
+    if not path:
+        return None
+    fp = os.path.join(os.path.dirname(path) or ".", "tennis_portal.json")
+    try:
+        with open(fp) as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def get_portal_universes() -> list[dict]:
+    """Public passthrough so the app can render the rich portal view."""
+    blob = _portal_data()
+    return blob.get("universes", []) if blob else []
+
+
 def get_stat_leaders(limit: int = 10, min_matches: int = 3) -> list[dict]:
-    """Singles match-win leaders aggregated from dual line scores.
+    """Singles match-win leaders per league, aggregated from dual line
+    scores: [{"league": label, "leaders": [...]}].
 
     Season play persists per-match results only inside lines_json (the
     matches/match_stats tables are filled solely by the one-off CLI sims,
     and fast-fidelity duals zero their stat blocks), so wins are the one
     stat reliably available. Singles only: GTT slots MS*/WS*, NCAA S*.
+
+    A full world is thousands of duals (each a JSON parse), so the result
+    is cached against the DB file's mtime — it only changes on sync.
     """
     path = _db_path()
     if not path or not os.path.exists(path):
         return []
+    try:
+        cache_key = (path, os.path.getmtime(path), limit, min_matches)
+    except OSError:
+        return []
+    if _leaders_cache["key"] == cache_key:
+        return _leaders_cache["leagues"]
     tally: dict[tuple, dict] = {}
 
     def _bump(key: tuple, name: str, team: str, league: str, won: bool):
@@ -182,11 +216,21 @@ def get_stat_leaders(limit: int = 10, min_matches: int = 3) -> list[dict]:
         conn.close()
     except Exception:
         return []
-    leaders = [r for r in tally.values() if r["matches"] >= min_matches]
-    for r in leaders:
+    by_league: dict[str, list] = {}
+    for r in tally.values():
+        if r["matches"] < min_matches:
+            continue
         r["win_pct"] = r["wins"] / r["matches"]
-    leaders.sort(key=lambda r: (-r["wins"], -r["win_pct"]))
-    return leaders[:limit]
+        by_league.setdefault(r["league"], []).append(r)
+    gtt_names = {info[2] for info in pid_info.values()} if pid_info else set()
+    leagues = []
+    for label, rows in by_league.items():
+        rows.sort(key=lambda r: (-r["wins"], -r["win_pct"]))
+        leagues.append({"league": label, "leaders": rows[:limit],
+                        "tier": "Pro" if label in gtt_names else "College"})
+    _leaders_cache["key"] = cache_key
+    _leaders_cache["leagues"] = leagues
+    return leagues
 
 
 def get_game_detail(source: str, dual_id: int) -> dict[str, Any] | None:

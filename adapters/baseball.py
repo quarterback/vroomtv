@@ -2,8 +2,23 @@
 from __future__ import annotations
 import os
 import sqlite3
+import json
 import zlib
 from typing import Any
+
+
+def _portal_leaders() -> dict | None:
+    """Advanced-stat leaders the baseball portal computes (wOBA, OPS+,
+    K%/BB%, K/9, WHIP). Returns None if not synced."""
+    db = _db_path()
+    if not db:
+        return None
+    path = os.path.join(os.path.dirname(db) or ".", "baseball_leaders.json")
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def _conn(path: str) -> sqlite3.Connection:
@@ -74,26 +89,123 @@ def get_extra_scores(limit_per_league: int = 8) -> list[dict]:
     """College / youth / World Cup games — separate competitions that live
     in the same o27v2 DB. Each is optional: tables only exist once that
     mode has been played, so per-league failures are silently skipped.
-    No game-detail pages for these (their box scores use different tables),
-    so items carry no id."""
+    Items now carry id so the Rocky can link to a tier-specific game page."""
     path = _db_path()
     if not path or not os.path.exists(path):
         return []
+    queries = [
+        ("College", "college", """
+            SELECT g.id, hp.name AS home_name, ap.name AS away_name,
+                   g.home_score, g.away_score, g.phase AS note
+            FROM college_games g
+            JOIN college_programs hp ON hp.id = g.home_program_id
+            JOIN college_programs ap ON ap.id = g.away_program_id
+            WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+        ("Youth Cup", "youth", """
+            SELECT g.id, ht.name AS home_name, at.name AS away_name,
+                   g.home_score, g.away_score, g.bracket_round AS note
+            FROM youth_games g
+            JOIN youth_teams ht ON ht.id = g.home_team_id
+            JOIN youth_teams at ON at.id = g.away_team_id
+            WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+        ("World Cup", "wc", """
+            SELECT g.id, ht.name AS home_name, at.name AS away_name,
+                   g.home_score, g.away_score, g.phase AS note
+            FROM wc_games g
+            JOIN wc_teams ht ON ht.id = g.home_wc_team_id
+            JOIN wc_teams at ON at.id = g.away_wc_team_id
+            WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+    ]
     out = []
     try:
         conn = _conn(path)
     except Exception:
         return []
-    for league, sql in _EXTRA_QUERIES:
+    for league, tier, sql in queries:
         try:
             for r in conn.execute(sql, (limit_per_league,)).fetchall():
-                d = dict(r)
-                d["league"] = league
+                d = dict(r); d["league"] = league; d["tier"] = tier
                 out.append(d)
         except Exception:
             continue
     conn.close()
     return out
+
+
+_TIER_TABLES = {
+    "college": {"games": "college_games", "batters": "college_batter_stats",
+                "pitchers": "college_pitcher_stats", "teams": "college_programs",
+                "team_pk": "id", "home_fk": "home_program_id", "away_fk": "away_program_id",
+                "team_side": "program_id"},
+    "wc": {"games": "wc_games", "batters": "game_wc_batter_stats",
+           "pitchers": "game_wc_pitcher_stats", "teams": "wc_teams",
+           "team_pk": "id", "home_fk": "home_wc_team_id", "away_fk": "away_wc_team_id",
+           "team_side": "wc_team_id"},
+    "youth": {"games": "youth_games", "batters": "game_youth_batter_stats",
+              "pitchers": "game_youth_pitcher_stats", "teams": "youth_teams",
+              "team_pk": "id", "home_fk": "home_team_id", "away_fk": "away_team_id",
+              "team_side": "team_id"},
+}
+
+
+def get_extra_game_detail(tier: str, game_id: int) -> dict[str, Any] | None:
+    """Box score for a college / youth-cup / World Cup game. Returns the
+    same shape as get_game_detail so the template can be shared."""
+    if tier not in _TIER_TABLES:
+        return None
+    cfg = _TIER_TABLES[tier]
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        conn = _conn(path)
+        game = conn.execute(f"""
+            SELECT g.*, ht.name AS home_name, at.name AS away_name,
+                   ht.id AS home_team_id, at.id AS away_team_id
+            FROM {cfg['games']} g
+            JOIN {cfg['teams']} ht ON ht.{cfg['team_pk']} = g.{cfg['home_fk']}
+            JOIN {cfg['teams']} at ON at.{cfg['team_pk']} = g.{cfg['away_fk']}
+            WHERE g.id = ?
+        """, (game_id,)).fetchone()
+        if not game:
+            conn.close()
+            return None
+        batters = conn.execute(f"""
+            SELECT b.*, b.{cfg['team_side']} AS team_id,
+                   COALESCE(pl.name, '') AS player_name
+            FROM {cfg['batters']} b
+            LEFT JOIN players pl ON pl.id = b.player_id
+            WHERE b.game_id = ? ORDER BY b.{cfg['team_side']}, b.player_id
+        """, (game_id,)).fetchall()
+        pitchers = conn.execute(f"""
+            SELECT p.*, p.{cfg['team_side']} AS team_id,
+                   COALESCE(pl.name, '') AS player_name
+            FROM {cfg['pitchers']} p
+            LEFT JOIN players pl ON pl.id = p.player_id
+            WHERE p.game_id = ? ORDER BY p.{cfg['team_side']}, p.player_id
+        """, (game_id,)).fetchall()
+        conn.close()
+        # Normalize column names across tiers so the template doesn't care.
+        def _norm_b(r):
+            d = dict(r)
+            d.setdefault("runs", d.get("r", 0))
+            d.setdefault("hits", d.get("h", 0))
+            return d
+        def _norm_p(r):
+            d = dict(r)
+            d.setdefault("hits_allowed", d.get("h", 0))
+            d.setdefault("runs_allowed", d.get("r", 0))
+            d.setdefault("er", d.get("er", 0))
+            d.setdefault("hr_allowed", d.get("hr", 0))
+            d.setdefault("outs_recorded", d.get("outs", 0))
+            d.setdefault("batters_faced", d.get("bf", 0))
+            return d
+        return {"game": dict(game),
+                "batters": [_norm_b(b) for b in batters],
+                "pitchers": [_norm_p(p) for p in pitchers],
+                "pbp": "", "tier": tier}
+    except Exception:
+        return None
 
 
 def get_standings() -> list[dict]:
@@ -113,7 +225,30 @@ def get_standings() -> list[dict]:
         return []
 
 
+def _qual_floors(conn: sqlite3.Connection, season: int) -> tuple[int, int]:
+    """Qualification floors that scale with how far the season has gone
+    (a fixed floor empties the boards early in a season): ~2 AB and ~3
+    outs per team-game, with small absolute minimums."""
+    row = conn.execute(
+        "SELECT COUNT(*), (SELECT COUNT(*) FROM teams) FROM games"
+        " WHERE season = ? AND played = 1", (season,)).fetchone()
+    played, teams = row[0] or 0, row[1] or 1
+    team_games = 2 * played / teams
+    return max(8, int(team_games * 2)), max(6, int(team_games * 3))
+
+
 def get_batting_leaders(limit: int = 10) -> list[dict]:
+    portal = _portal_leaders()
+    if portal and portal.get("batting"):
+        return portal["batting"][:limit]
+    return _db_batting_leaders(limit)
+
+
+def _db_batting_leaders(limit: int = 10) -> list[dict]:
+    """Current-season batting leaders, aggregated from the per-game tables.
+
+    The season_player_* rollups are only written when a season is archived,
+    so mid-season the game tables are the one true source."""
     path = _db_path()
     if not path or not os.path.exists(path):
         return []
@@ -121,15 +256,21 @@ def get_batting_leaders(limit: int = 10) -> list[dict]:
         conn = _conn(path)
         season = _current_season(conn)
         rows = conn.execute("""
-            SELECT b.player_name, b.team_abbrev,
-                   b.g, b.ab, b.h, b.hr, b.rbi, b.bb, b.k,
-                   CASE WHEN b.ab > 0 THEN ROUND(CAST(b.h AS REAL)/b.ab, 3) ELSE 0 END AS avg
-            FROM season_player_batting b
-            WHERE b.season_id = (SELECT id FROM seasons WHERE season_number = ?)
-              AND b.ab >= 20
+            SELECT p.name AS player_name, t.abbrev AS team_abbrev,
+                   COUNT(DISTINCT b.game_id) AS g, SUM(b.ab) AS ab,
+                   SUM(b.hits) AS h, SUM(b.hr) AS hr, SUM(b.rbi) AS rbi,
+                   SUM(b.bb) AS bb, SUM(b.k) AS k,
+                   ROUND(CAST(SUM(b.hits) AS REAL) / SUM(b.ab), 3) AS avg
+            FROM game_batter_stats b
+            JOIN games gm ON gm.id = b.game_id AND gm.season = ? AND gm.played = 1
+            JOIN players p ON p.id = b.player_id
+            JOIN teams t ON t.id = b.team_id
+            WHERE b.phase = 0 AND b.is_playoff = 0
+            GROUP BY b.player_id
+            HAVING SUM(b.ab) >= ?
             ORDER BY avg DESC
             LIMIT ?
-        """, (season, limit)).fetchall()
+        """, (season, _qual_floors(conn, season)[0], limit)).fetchall()
         conn.close()
         return [dict(r) for r in rows]
     except Exception:
@@ -137,6 +278,14 @@ def get_batting_leaders(limit: int = 10) -> list[dict]:
 
 
 def get_pitching_leaders(limit: int = 10) -> list[dict]:
+    portal = _portal_leaders()
+    if portal and portal.get("pitching"):
+        return portal["pitching"][:limit]
+    return _db_pitching_leaders(limit)
+
+
+def _db_pitching_leaders(limit: int = 10) -> list[dict]:
+    """Current-season ERA leaders from the per-game tables (see batting)."""
     path = _db_path()
     if not path or not os.path.exists(path):
         return []
@@ -144,19 +293,27 @@ def get_pitching_leaders(limit: int = 10) -> list[dict]:
         conn = _conn(path)
         season = _current_season(conn)
         rows = conn.execute("""
-            SELECT p.player_name, p.team_abbrev,
-                   p.g, p.gs, p.w, p.l, p.k, p.er, p.outs,
-                   CASE WHEN p.outs > 0
-                        THEN ROUND(CAST(p.er AS REAL) * 27.0 / p.outs, 2)
-                        ELSE 0 END AS era
-            FROM season_player_pitching p
-            WHERE p.season_id = (SELECT id FROM seasons WHERE season_number = ?)
-              AND p.outs >= 15
+            SELECT pl.name AS player_name, t.abbrev AS team_abbrev,
+                   COUNT(DISTINCT p.game_id) AS g, SUM(p.k) AS k,
+                   SUM(p.er) AS er, SUM(p.outs_recorded) AS outs,
+                   ROUND(CAST(SUM(p.er) AS REAL) * 27.0 / SUM(p.outs_recorded), 2) AS era
+            FROM game_pitcher_stats p
+            JOIN games gm ON gm.id = p.game_id AND gm.season = ? AND gm.played = 1
+            JOIN players pl ON pl.id = p.player_id
+            JOIN teams t ON t.id = p.team_id
+            WHERE p.phase = 0 AND p.is_playoff = 0
+            GROUP BY p.player_id
+            HAVING SUM(p.outs_recorded) >= ?
             ORDER BY era ASC
             LIMIT ?
-        """, (season, limit)).fetchall()
+        """, (season, _qual_floors(conn, season)[1], limit)).fetchall()
         conn.close()
-        return [dict(r) for r in rows]
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["ip"] = f"{d['outs'] // 3}.{d['outs'] % 3}"  # innings, baseball-style
+            out.append(d)
+        return out
     except Exception:
         return []
 

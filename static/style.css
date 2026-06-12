@@ -138,7 +138,19 @@ img { display: block; max-width: 100%; }
   .front { grid-template-columns: 1fr; }
   .brand-name, .nav-date { display: none; }
 }
-.page-title { font: 800 30px var(--serif); margin-bottom: 20px; }
+.page-title { font: 800 30px var(--serif); }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.filter-bar { display: flex; gap: 8px; }
+.filter-bar select {
+  font: 600 13px var(--sans);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  padding: 7px 12px;
+  background: var(--paper);
+  cursor: pointer;
+  max-width: 280px;
+}
 section { margin-bottom: 36px; }
 
 /* ── Lead story ────────────────────────────────────────────────────── */
@@ -281,6 +293,64 @@ section { margin-bottom: 36px; }
   float: left;
   padding: 4px 8px 0 0;
 }
+
+/* ── Match infographics (duel bars, drive chart, chips) ────────────── */
+.duel { max-width: 640px; }
+.duel-row { margin-bottom: 12px; }
+.duel-label {
+  display: block;
+  text-align: center;
+  font: 700 11px var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.duel-line { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; gap: 10px; }
+.duel-num { font: 700 14px var(--sans); font-variant-numeric: tabular-nums; }
+.duel-num:last-child { text-align: right; }
+.duel-bar { height: 10px; border-radius: 5px; background: var(--red); overflow: hidden; }
+.duel-bar i { display: block; height: 100%; background: #16171a; }
+.duel-key { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.duel-key .k-away { color: #16171a; }
+.duel-key .k-home { color: var(--red); }
+.drive-chart { width: 100%; max-width: 760px; height: 64px; display: block; }
+.worm { max-width: 760px; }
+.worm svg { width: 100%; height: 120px; display: block; }
+.worm-edge { font-size: 11.5px; color: var(--muted); padding: 2px 0; }
+.data-table tr.hl td { background: #faf3e8; font-weight: 700; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.chip {
+  font: 600 12.5px var(--sans);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  padding: 6px 14px;
+  white-space: nowrap;
+}
+.chip:hover { border-color: var(--ink); }
+.story-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 28px 0 36px; }
+@media (max-width: 700px) { .story-grid { grid-template-columns: 1fr; } }
+.story-card img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; image-rendering: pixelated; border-radius: 4px; margin-bottom: 8px; }
+.story-card h3 { font: 700 15px/1.3 var(--sans); }
+.story-card:hover h3 { text-decoration: underline; }
+.story-card .kicker { margin-bottom: 4px; }
+.game-banner { border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+.gb-title {
+  background: var(--red);
+  color: #fff;
+  font: 700 11.5px var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 6px 12px;
+}
+.gb-score { display: flex; align-items: center; justify-content: center; gap: 28px; padding: 14px 16px; }
+.gb-side { display: flex; align-items: baseline; gap: 12px; }
+.gb-side b { font: 800 30px/1 var(--sans); font-variant-numeric: tabular-nums; }
+.gb-team { font: 700 16px var(--serif); }
+.gb-side.lost { color: var(--muted); }
+.gb-side.lost b { font-weight: 600; }
+.gb-status { font: 700 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--rule); border-radius: 10px; padding: 3px 9px; }
 
 /* ── Bits ──────────────────────────────────────────────────────────── */
 .empty-note { color: var(--soft); font-size: 13px; padding: 8px 0; }

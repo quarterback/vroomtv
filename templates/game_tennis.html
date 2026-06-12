@@ -20,6 +20,25 @@
   </div>
 </div>
 
+{% if duel %}
+<section>
+  <h2 class="sect">{{ a_label }} vs {{ h_label }}</h2>
+  <div class="duel">
+    {% for s in duel %}
+    <div class="duel-row">
+      <span class="duel-label">{{ s.label }}</span>
+      <div class="duel-line">
+        <span class="duel-num">{{ s.a }}</span>
+        <div class="duel-bar"><i style="width:{{ s.a_pct }}%"></i></div>
+        <span class="duel-num">{{ s.b }}</span>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="duel-key"><span class="k-away">▮ {{ a_label }}</span><span class="k-home">▮ {{ h_label }}</span></div>
+  </div>
+</section>
+{% endif %}
+
 {% if lines %}
 <section>
   <h2 class="sect">Lines</h2>
@@ -46,5 +65,20 @@
 </section>
 {% else %}
 <div class="empty-note">Line detail not available</div>
+{% endif %}
+
+{% if ladder %}
+<section>
+  <h2 class="sect">Ladder</h2>
+  <table class="data-table full">
+    <thead><tr><th>School</th><th class="n">W</th><th class="n">L</th></tr></thead>
+    <tbody>
+    {% for t in ladder %}
+    <tr{% if t.name in (h_label, a_label) %} class="hl"{% endif %}>
+        <td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endif %}
 {% endblock %}

@@ -17,12 +17,15 @@ primary_region = 'sjc'
   # placeholder.
   BASEBALL_DB = '/app/data/o27v2.db'
   BASEBALL_SYNC_URL = 'https://superinnin.gs/export/db'
+  BASEBALL_PORTAL_URL = 'https://superinnin.gs'
   PORT = '8080'
   SYNC_INTERVAL_MIN = '30'
   TENNIS_DB = '/app/data/tennis.db'
   TENNIS_SYNC_URL = 'https://pctennis.xyz/export/db'
+  TENNIS_PORTAL_URL = 'https://pctennis.xyz'
   VIPERBALL_DB = '/app/data/viperball.db'
   VIPERBALL_SYNC_URL = 'https://viperball.xyz/export/db'
+  VIPERBALL_PORTAL_URL = 'https://viperball.xyz'
 
 [http_service]
   internal_port = 8080

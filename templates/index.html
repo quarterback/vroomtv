@@ -5,12 +5,18 @@
 {% set lead_article = articles[0] if articles else None %}
 {% set lead_wire = wire.lead if not lead_article else None %}
 
+<div class="chips">
+  {% for sport, league in ticker_leagues %}
+  <a class="chip" href="{{ url_for('standings', sport=sport, league=league) }}">{{ league }}</a>
+  {% endfor %}
+</div>
+
 <div class="front">
   <div class="front-main">
 
     {% if lead_article %}
     <article class="lead-story">
-      <a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}" class="lead-art"><img src="/art/{{ lead_article.art_seed }}.svg" alt=""></a>
+      <a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}" class="lead-art"><img src="/art/baseball/{{ lead_article.art_seed }}.svg" alt=""></a>
       <span class="kicker">Baseball &middot; The Gazette</span>
       <h1><a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}">{{ lead_article.headline }}</a></h1>
       {% if lead_article.lede %}<p class="lede">{{ lead_article.lede }}</p>{% endif %}
@@ -18,13 +24,33 @@
     </article>
     {% elif lead_wire %}
     <article class="lead-story">
-      <a href="{{ lead_wire.url }}" class="lead-art"><img src="/art/{{ lead_wire.art_seed }}.svg" alt=""></a>
-      <span class="kicker">{{ lead_wire.sport }} &middot; {{ lead_wire.league }}{% if lead_wire.extra %} &middot; {{ lead_wire.extra }}{% endif %}</span>
+      <div class="game-banner">
+        <div class="gb-title">{{ lead_wire.league }}{% if lead_wire.extra %} &mdash; {{ lead_wire.extra }}{% endif %}</div>
+        <a class="gb-score" href="{{ lead_wire.url }}">
+          <span class="gb-side {{ 'lost' if lead_wire.home_won else 'won' }}"><span class="gb-team">{{ lead_wire.away_name }}</span><b>{{ lead_wire.away_score }}</b></span>
+          <span class="gb-status">Final</span>
+          <span class="gb-side {{ 'won' if lead_wire.home_won else 'lost' }}"><b>{{ lead_wire.home_score }}</b><span class="gb-team">{{ lead_wire.home_name }}</span></span>
+        </a>
+      </div>
+      <a href="{{ lead_wire.url }}" class="lead-art"><img src="/art/{{ lead_wire.sport | lower }}/{{ lead_wire.art_seed }}.svg" alt=""></a>
       <h1><a href="{{ lead_wire.url }}">{{ lead_wire.headline }}</a></h1>
       <div class="byline">From the wire</div>
     </article>
     {% else %}
     <div class="empty-note">No games on record yet. Point the hub at a league database and the front page writes itself.</div>
+    {% endif %}
+
+    {% set featured = wire.briefs[:3] if not lead_article else (wire.briefs[:2] + ([wire.lead] if wire.lead else []))[:3] %}
+    {% if featured %}
+    <div class="story-grid">
+      {% for b in featured %}
+      <a class="story-card" href="{{ b.url }}">
+        <img src="/art/{{ b.sport | lower }}/{{ b.art_seed }}.svg" alt="">
+        <span class="kicker">{{ b.sport }}{% if b.extra %} &middot; {{ b.extra }}{% endif %}</span>
+        <h3>{{ b.headline }}</h3>
+      </a>
+      {% endfor %}
+    </div>
     {% endif %}
 
     <div class="score-sections">
@@ -51,7 +77,7 @@
         <h3 class="subsect">{{ league }}</h3>
         <div class="card-grid">
           {% for g in games %}
-          {{ scorecard(None, g.away_name, g.home_name, g.away_score, g.home_score, (g.note or 'Final') | title) }}
+          {{ scorecard('/game/baseball/' ~ g.tier ~ '/' ~ g.id, g.away_name, g.home_name, g.away_score, g.home_score, (g.note or 'Final') | title) }}
           {% endfor %}
         </div>
         {% endfor %}
@@ -109,7 +135,7 @@
         {% for b in rail_briefs %}
         <li>
           <a class="brief" href="{{ b.url }}">
-            <img class="thumb" src="/art/{{ b.art_seed }}.svg" alt="">
+            <img class="thumb" src="/art/{{ b.sport | lower }}/{{ b.art_seed }}.svg" alt="">
             <span class="brief-text">{{ b.headline }}
               <span class="meta">{{ b.sport }}{% if b.extra %} &middot; {{ b.extra }}{% endif %}</span>
             </span>
