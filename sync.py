@@ -22,6 +22,7 @@ import os
 import tempfile
 import threading
 import time
+import urllib.error
 import urllib.request
 
 log = logging.getLogger("vroomtv.sync")
@@ -46,21 +47,41 @@ def sync_all() -> dict:
             continue
         try:
             headers = {"Authorization": f"Bearer {token}"} if token else {}
+            # Conditional fetch: sims fingerprint their source DB and answer
+            # 304 when nothing changed, so quiet cycles cost ~no bandwidth.
+            etag_path = dest + ".etag"
+            if os.path.exists(dest):
+                try:
+                    with open(etag_path) as fh:
+                        headers["If-None-Match"] = fh.read().strip()
+                except OSError:
+                    pass
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=120) as resp:
+                etag = resp.headers.get("ETag", "")
                 os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
                 fd, tmp = tempfile.mkstemp(dir=os.path.dirname(dest) or ".", suffix=".tmp")
                 with os.fdopen(fd, "wb") as out:
                     while chunk := resp.read(1 << 20):
                         out.write(chunk)
             os.replace(tmp, dest)  # atomic — readers never see a partial file
+            if etag:
+                with open(etag_path, "w") as fh:
+                    fh.write(etag)
             results[sport] = f"ok ({os.path.getsize(dest):,} bytes)"
+        except urllib.error.HTTPError as e:
+            if e.code == 304:
+                results[sport] = "unchanged"
+            else:
+                results[sport] = f"error: {e}"
+                log.warning("sync %s failed: %s", sport, e)
         except Exception as e:  # noqa: BLE001 — a dead sim must not kill the loop
             results[sport] = f"error: {e}"
             log.warning("sync %s failed: %s", sport, e)
     _last["at"] = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
     _last["results"] = results
-    _warm_caches()
+    if any(v.startswith("ok") for v in results.values()):
+        _warm_caches()
     return results
 
 
