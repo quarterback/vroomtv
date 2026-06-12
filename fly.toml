@@ -26,9 +26,11 @@ primary_region = "ams"
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"
+  # Keep the machine awake: the background DB sync (sync.py) only runs
+  # while the app is up, and a stopped hub never refreshes its scores.
+  auto_stop_machines = false
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
 [[vm]]
   cpu_kind = "shared"
