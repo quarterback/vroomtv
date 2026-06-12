@@ -141,7 +141,10 @@ def sync_all() -> dict:
             log.info("viperball kenpom fanout skipped: %s", e)
 
     if any(v.startswith("ok") for v in results.values()):
-        _warm_caches()
+        # Warm off-thread: the rebuilds are heavy and the /sync response
+        # (or the timer tick) shouldn't wait on them.
+        threading.Thread(target=_warm_caches, daemon=True,
+                         name="cache-warm").start()
     return results
 
 

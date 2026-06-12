@@ -37,4 +37,6 @@ primary_region = 'sjc'
 [[vm]]
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256
+  # The tennis DB alone is >120MB and the cache rebuilds parse thousands
+  # of JSON blobs; 256MB was swap-thrash territory.
+  memory_mb = 512

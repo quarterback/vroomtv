@@ -133,7 +133,7 @@ def get_standings() -> list[dict]:
     return out
 
 
-_leaders_cache: dict = {"key": None, "leagues": []}
+_leaders_cache: dict = {"key": None, "leagues": [], "building": False}
 
 
 def _portal_data() -> dict | None:
@@ -157,6 +157,21 @@ def get_portal_universes() -> list[dict]:
     return blob.get("universes", []) if blob else []
 
 
+def has_gtt() -> bool:
+    """Cheap existence check so callers can skip the expensive DB-derived
+    leader aggregation when the portal covers everything else."""
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return False
+    try:
+        conn = _conn(path)
+        n = conn.execute("SELECT COUNT(*) FROM gtt_leagues").fetchone()[0]
+        conn.close()
+        return bool(n)
+    except Exception:
+        return False
+
+
 def get_stat_leaders(limit: int = 10, min_matches: int = 3) -> list[dict]:
     """Singles match-win leaders per league, aggregated from dual line
     scores: [{"league": label, "leaders": [...]}].
@@ -178,6 +193,22 @@ def get_stat_leaders(limit: int = 10, min_matches: int = 3) -> list[dict]:
         return []
     if _leaders_cache["key"] == cache_key:
         return _leaders_cache["leagues"]
+    # Stale-while-revalidate: a full world is thousands of dual JSON
+    # parses — never run that on a visitor's request when an older result
+    # can be served while a background thread rebuilds.
+    if _leaders_cache["leagues"] and _leaders_cache["key"] is not None:
+        if not _leaders_cache["building"]:
+            _leaders_cache["building"] = True
+            import threading
+            threading.Thread(target=_build_stat_leaders,
+                             args=(limit, min_matches, cache_key),
+                             daemon=True, name="tennis-leaders-rebuild").start()
+        return _leaders_cache["leagues"]
+    return _build_stat_leaders(limit, min_matches, cache_key)
+
+
+def _build_stat_leaders(limit: int, min_matches: int, cache_key) -> list[dict]:
+    path = _db_path()
     tally: dict[tuple, dict] = {}
 
     def _bump(key: tuple, name: str, team: str, league: str, won: bool):
@@ -231,6 +262,7 @@ def get_stat_leaders(limit: int = 10, min_matches: int = 3) -> list[dict]:
                         _bump(("ncaa", s["id"], school, nm), nm, school, label, won)
         conn.close()
     except Exception:
+        _leaders_cache["building"] = False
         return []
     by_league: dict[str, list] = {}
     for r in tally.values():
@@ -246,6 +278,7 @@ def get_stat_leaders(limit: int = 10, min_matches: int = 3) -> list[dict]:
                         "tier": "Pro" if label in gtt_names else "College"})
     _leaders_cache["key"] = cache_key
     _leaders_cache["leagues"] = leagues
+    _leaders_cache["building"] = False
     return leagues
 
 
