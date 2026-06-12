@@ -11,32 +11,61 @@
 <div class="empty-note">No leaders yet — the sims haven't filed any results.</div>
 
 {% elif sel.kind == 'baseball' %}
+{% set advanced = sel.batting and sel.batting[0].get('woba') is not none %}
 <section>
-  <h2 class="sect">{{ sel.label }}</h2>
+  <h2 class="sect">{{ sel.label }}{% if advanced %} &middot; Advanced{% endif %}</h2>
   <div class="table-grid wide">
     <table class="data-table">
+      {% if advanced %}
+      <thead><tr><th>Batting</th><th class="n">PA</th><th class="n">AVG</th><th class="n">OBP</th><th class="n">SLG</th><th class="n">wOBA</th><th class="n">K%</th><th class="n">BB%</th></tr></thead>
+      <tbody>
+      {% for p in sel.batting %}
+      <tr><td class="t">{{ p.player_name }} <span class="meta">{{ p.team_abbrev }}</span></td>
+          <td class="n">{{ p.pa }}</td>
+          <td class="n">{{ '%.3f' | format(p.avg or 0) }}</td>
+          <td class="n">{{ '%.3f' | format(p.obp or 0) }}</td>
+          <td class="n">{{ '%.3f' | format(p.slg or 0) }}</td>
+          <td class="n"><b>{{ '%.3f' | format(p.woba or 0) }}</b></td>
+          <td class="n">{{ '%.1f' | format((p.k_pct or 0) * 100) }}%</td>
+          <td class="n">{{ '%.1f' | format((p.bb_pct or 0) * 100) }}%</td></tr>
+      {% endfor %}
+      </tbody>
+      {% else %}
       <thead><tr><th>Batting Average</th><th class="n">G</th><th class="n">AB</th><th class="n">H</th><th class="n">HR</th><th class="n">RBI</th><th class="n">AVG</th></tr></thead>
       <tbody>
       {% for p in sel.batting %}
       <tr><td class="t">{{ p.player_name }} <span class="meta">{{ p.team_abbrev }}</span></td>
           <td class="n">{{ p.g }}</td><td class="n">{{ p.ab }}</td><td class="n">{{ p.h }}</td><td class="n">{{ p.hr }}</td><td class="n">{{ p.rbi }}</td>
           <td class="n"><b>{{ '%.3f' | format(p.avg) }}</b></td></tr>
-      {% else %}
-      <tr><td class="t empty-note">No data</td></tr>
+      {% else %}<tr><td class="t empty-note">No data</td></tr>
       {% endfor %}
       </tbody>
+      {% endif %}
     </table>
     <table class="data-table">
+      {% if advanced %}
+      <thead><tr><th>Pitching</th><th class="n">IP</th><th class="n">ERA</th><th class="n">WHIP</th><th class="n">K/9</th><th class="n">BB/9</th></tr></thead>
+      <tbody>
+      {% for p in sel.pitching %}
+      <tr><td class="t">{{ p.player_name }} <span class="meta">{{ p.team_abbrev }}</span></td>
+          <td class="n">{{ '%.1f' | format(p.ip or 0) }}</td>
+          <td class="n"><b>{{ '%.2f' | format(p.era or 0) }}</b></td>
+          <td class="n">{{ '%.2f' | format(p.whip or 0) }}</td>
+          <td class="n">{{ '%.1f' | format(p.k9 or 0) }}</td>
+          <td class="n">{{ '%.1f' | format(p.bb9 or 0) }}</td></tr>
+      {% endfor %}
+      </tbody>
+      {% else %}
       <thead><tr><th>Earned Run Average</th><th class="n">G</th><th class="n">IP</th><th class="n">K</th><th class="n">ERA</th></tr></thead>
       <tbody>
       {% for p in sel.pitching %}
       <tr><td class="t">{{ p.player_name }} <span class="meta">{{ p.team_abbrev }}</span></td>
           <td class="n">{{ p.g }}</td><td class="n">{{ p.ip }}</td><td class="n">{{ p.k }}</td>
           <td class="n"><b>{{ '%.2f' | format(p.era) }}</b></td></tr>
-      {% else %}
-      <tr><td class="t empty-note">No data</td></tr>
+      {% else %}<tr><td class="t empty-note">No data</td></tr>
       {% endfor %}
       </tbody>
+      {% endif %}
     </table>
   </div>
 </section>

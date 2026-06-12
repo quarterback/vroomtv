@@ -2,8 +2,23 @@
 from __future__ import annotations
 import os
 import sqlite3
+import json
 import zlib
 from typing import Any
+
+
+def _portal_leaders() -> dict | None:
+    """Advanced-stat leaders the baseball portal computes (wOBA, OPS+,
+    K%/BB%, K/9, WHIP). Returns None if not synced."""
+    db = _db_path()
+    if not db:
+        return None
+    path = os.path.join(os.path.dirname(db) or ".", "baseball_leaders.json")
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def _conn(path: str) -> sqlite3.Connection:
@@ -126,6 +141,13 @@ def _qual_floors(conn: sqlite3.Connection, season: int) -> tuple[int, int]:
 
 
 def get_batting_leaders(limit: int = 10) -> list[dict]:
+    portal = _portal_leaders()
+    if portal and portal.get("batting"):
+        return portal["batting"][:limit]
+    return _db_batting_leaders(limit)
+
+
+def _db_batting_leaders(limit: int = 10) -> list[dict]:
     """Current-season batting leaders, aggregated from the per-game tables.
 
     The season_player_* rollups are only written when a season is archived,
@@ -159,6 +181,13 @@ def get_batting_leaders(limit: int = 10) -> list[dict]:
 
 
 def get_pitching_leaders(limit: int = 10) -> list[dict]:
+    portal = _portal_leaders()
+    if portal and portal.get("pitching"):
+        return portal["pitching"][:limit]
+    return _db_pitching_leaders(limit)
+
+
+def _db_pitching_leaders(limit: int = 10) -> list[dict]:
     """Current-season ERA leaders from the per-game tables (see batting)."""
     path = _db_path()
     if not path or not os.path.exists(path):

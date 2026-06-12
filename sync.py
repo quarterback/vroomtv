@@ -33,6 +33,17 @@ FEEDS = [
     ("tennis", "TENNIS_SYNC_URL", "TENNIS_DB", "TENNIS_SYNC_TOKEN"),
 ]
 
+# Portal JSON exports — advanced stats the sims' stat sites already
+# compute (wOBA / OPS+ for baseball, KenPom for viperball college).
+# Optional: missing or 404 just means the basic DB-derived leaders show.
+# Each entry: (key, env-base, default-suffix, where-it-lands-on-disk)
+PORTALS = [
+    ("baseball_leaders", "BASEBALL_PORTAL_URL", "/export/leaders.json",
+     "baseball_leaders.json"),
+    ("viperball_sessions", "VIPERBALL_PORTAL_URL", "/export/sessions.json",
+     "viperball_sessions.json"),
+]
+
 _last: dict = {"at": None, "results": {}}
 
 
@@ -80,9 +91,63 @@ def sync_all() -> dict:
             log.warning("sync %s failed: %s", sport, e)
     _last["at"] = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
     _last["results"] = results
+    # Portal JSON exports: optional, best-effort, never block a sport.
+    for key, url_env, suffix, name in PORTALS:
+        base = os.environ.get(url_env)
+        if not base:
+            continue
+        sport = key.split("_")[0]
+        dest = _portal_path(sport, name)
+        if not dest:
+            continue
+        try:
+            url = base.rstrip("/") + suffix
+            with urllib.request.urlopen(url, timeout=30) as resp:
+                blob = resp.read()
+            os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+            with open(dest, "wb") as fh:
+                fh.write(blob)
+            results[key] = f"ok ({len(blob):,} bytes)"
+        except Exception as e:
+            log.info("portal %s skipped: %s", key, e)
+
+    # Viperball: fan out one standings.json per active college session.
+    vb_sessions_path = _portal_path("viperball", "viperball_sessions.json")
+    base = os.environ.get("VIPERBALL_PORTAL_URL")
+    if vb_sessions_path and os.path.exists(vb_sessions_path) and base:
+        try:
+            import json
+            with open(vb_sessions_path) as fh:
+                sessions = json.load(fh).get("college", [])
+            ok = 0
+            for s in sessions:
+                sid = s.get("session_id")
+                if not sid:
+                    continue
+                dest = _portal_path("viperball", f"vb_kp_{sid}.json")
+                try:
+                    url = f"{base.rstrip('/')}/export/college/{sid}/standings.json"
+                    with urllib.request.urlopen(url, timeout=30) as r:
+                        with open(dest, "wb") as fh:
+                            fh.write(r.read())
+                    ok += 1
+                except Exception:
+                    continue
+            if ok:
+                results["viperball_kenpom"] = f"ok ({ok} session{'s' if ok != 1 else ''})"
+        except Exception as e:
+            log.info("viperball kenpom fanout skipped: %s", e)
+
     if any(v.startswith("ok") for v in results.values()):
         _warm_caches()
     return results
+
+
+def _portal_path(sport: str, name: str) -> str | None:
+    """Stash portal JSON next to that sport's DB so cleanup is automatic."""
+    db = os.environ.get({"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
+                         "tennis": "TENNIS_DB"}[sport])
+    return os.path.join(os.path.dirname(db) or ".", name) if db else None
 
 
 def _warm_caches() -> None:

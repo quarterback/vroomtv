@@ -31,8 +31,25 @@
 </section>
 
 {% elif sel.kind == 'viperball' %}
+{% set kp = sel.teams and sel.teams[0].get('adj_o') is not none %}
 <section>
-  <h2 class="sect">{{ sel.label }}</h2>
+  <h2 class="sect">{{ sel.label }}{% if kp %} &middot; KenPom{% endif %}</h2>
+  {% if kp %}
+  <table class="data-table full">
+    <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">AdjO</th><th class="n">AdjD</th><th class="n">EM</th><th class="n">Tempo</th><th class="n">Luck</th></tr></thead>
+    <tbody>
+    {% for t in sel.teams | sort(attribute='em', reverse=true) %}
+    <tr><td class="t">{{ t.team_name }}</td>
+        <td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td>
+        <td class="n">{{ '%.1f' | format(t.adj_o or 0) }}</td>
+        <td class="n">{{ '%.1f' | format(t.adj_d or 0) }}</td>
+        <td class="n"><b>{{ '%+.1f' | format(t.em or 0) }}</b></td>
+        <td class="n">{{ '%.1f' | format(t.tempo or 0) }}</td>
+        <td class="n">{{ '%+.3f' | format(t.luck or 0) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
   <table class="data-table full">
     <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">T</th><th class="n">Strk</th></tr></thead>
     <tbody>
@@ -42,6 +59,7 @@
     {% endfor %}
     </tbody>
   </table>
+  {% endif %}
 </section>
 
 {% elif sel.kind == 'tennis' %}

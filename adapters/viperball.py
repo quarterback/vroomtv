@@ -162,6 +162,24 @@ def get_recent_scores(limit_per_league: int = 8) -> list[dict]:
     return results
 
 
+def _portal_kenpom() -> dict[str, list]:
+    """Map of session_id → KenPom rows the viperball stats site computed.
+    Returns {} if no exports have been synced."""
+    path = _db_path()
+    if not path:
+        return {}
+    import glob as _glob
+    out = {}
+    for fp in _glob.glob(os.path.join(os.path.dirname(path) or ".", "vb_kp_*.json")):
+        try:
+            with open(fp) as fh:
+                blob = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            continue
+        out[blob.get("session_id", "")] = blob.get("standings", [])
+    return out
+
+
 def get_standings() -> list[dict]:
     path = _db_path()
     if not path or not os.path.exists(path):
@@ -188,9 +206,22 @@ def get_standings() -> list[dict]:
             teams.sort(key=lambda t: (-t["wins"], t["losses"]))
             out.append({"league": lg["label"], "save_key": lg["save_key"],
                         "tier": "Pro", "teams": teams})
+        kp = _portal_kenpom()
         for lg in _college_leagues(path):
+            teams = lg["teams"]
+            kp_rows = kp.get(lg["save_key"])
+            if kp_rows:
+                # Merge KenPom efficiency onto the team rows.
+                by_name = {r["team"]: r for r in kp_rows}
+                for t in teams:
+                    extras = by_name.get(t["team_name"])
+                    if extras:
+                        for k in ("adj_o", "adj_d", "tempo", "em", "luck"):
+                            if extras.get(k) is not None:
+                                t[k] = extras[k]
             out.append({"league": lg["label"], "save_key": lg["save_key"],
-                        "tier": "College", "teams": lg["teams"]})
+                        "tier": "College", "teams": teams,
+                        "has_kenpom": bool(kp_rows)})
     except Exception:
         pass
     return out
