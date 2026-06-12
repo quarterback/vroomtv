@@ -78,6 +78,23 @@ def _college_leagues(path: str) -> list[dict]:
     return _rebuild_college(path, cache_key)
 
 
+def _active_session_ids(path: str) -> set[str] | None:
+    """Sessions the viperball app currently reports active. Returns None
+    when sessions.json hasn't been synced — callers fall back to "trust
+    the DB" so local dev / pre-sync state isn't blanked out."""
+    sessions_path = os.path.join(os.path.dirname(path) or ".",
+                                 "viperball_sessions.json")
+    if not os.path.exists(sessions_path):
+        return None
+    try:
+        with open(sessions_path) as fh:
+            blob = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return {s.get("session_id") for s in blob.get("college", [])
+            if s.get("session_id")}
+
+
 def _rebuild_college(path: str, cache_key) -> list[dict]:
     sessions: dict[str, dict] = {}
     try:
@@ -89,11 +106,14 @@ def _rebuild_college(path: str, cache_key) -> list[dict]:
     except Exception:
         _college_cache["building"] = False
         return []
+    active = _active_session_ids(path)
     for r in rows:
         m = _BOX_KEY.match(r["save_key"])
         if not m:
             continue
         sid, week, matchup_key = m.group(1), int(m.group(2)), m.group(3)
+        if active is not None and sid not in active:
+            continue
         try:
             fr = json.loads(r["data"])
         except (json.JSONDecodeError, TypeError):
