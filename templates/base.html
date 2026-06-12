@@ -3,26 +3,77 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}The Unassociated Press Sports Wire{% endblock %}</title>
+  <title>{% block title %}Rocky Mountain News — Sports{% endblock %}</title>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800&f[]=zodiak@400,500,700,800,900&f[]=boska@700,900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<header class="masthead">
-  <span class="masthead-flag">The <em>Unassociated</em> Press</span>
-  <hr class="masthead-rule">
-  <span class="masthead-tagline">Sports Wire &mdash; All the Results Fit to Transmit</span>
-</header>
-<div class="edition-bar">
-  <div>{{ wire_date }}</div>
-  <nav>
-    <a href="{{ url_for('index') }}"{% if request.endpoint == 'index' %} class="active"{% endif %}>Scores</a>
+
+<div class="strip" id="strip">
+  <div class="strip-filter">
+    <select id="league-filter" aria-label="Filter scoreboard by league">
+      <option value="">Top Events</option>
+      {% for sport, league in ticker_leagues %}
+      <option value="{{ sport }}|{{ league }}">{{ league }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="strip-scroll" id="strip-scroll">
+    {% for sport, league in ticker_leagues %}
+    <div class="strip-group" data-league="{{ sport }}|{{ league }}">
+      <div class="strip-label">{{ league }}</div>
+      {% for g in ticker if g.league == league %}
+      <a class="strip-card" href="{{ g.url }}">
+        <span class="s-status">{{ g.note }}</span>
+        <span class="s-row {{ 'won' if g.away_score > g.home_score else 'lost' }}">
+          <span class="s-team">{{ g.away }}</span><span class="s-score">{{ g.away_score }}</span>
+        </span>
+        <span class="s-row {{ 'won' if g.home_score >= g.away_score else 'lost' }}">
+          <span class="s-team">{{ g.home }}</span><span class="s-score">{{ g.home_score }}</span>
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% if not ticker %}<div class="strip-empty">No games on the wire</div>{% endif %}
+  </div>
+  <button class="strip-arrow" id="strip-arrow" aria-label="Scroll scoreboard">&rsaquo;</button>
+</div>
+
+<nav class="topnav">
+  <a class="brand" href="{{ url_for('index') }}"><span class="brand-name">Rocky Mountain News</span><span class="brand-tag">Sports</span></a>
+  <div class="nav-links">
+    <a href="{{ url_for('index') }}"{% if request.endpoint == 'index' %} class="active"{% endif %}>Home</a>
+    <a href="{{ url_for('news') }}"{% if request.endpoint in ('news', 'article') %} class="active"{% endif %}>News</a>
     <a href="{{ url_for('standings') }}"{% if request.endpoint == 'standings' %} class="active"{% endif %}>Standings</a>
     <a href="{{ url_for('leaders') }}"{% if request.endpoint == 'leaders' %} class="active"{% endif %}>Leaders</a>
-  </nav>
-  <div>Evening Wire Edition</div>
-</div>
-<div class="page">
+  </div>
+  <span class="nav-date">{{ dateline }}</span>
+</nav>
+
+<main class="container">
   {% block content %}{% endblock %}
-</div>
+</main>
+
+<footer class="footer">
+  <span class="brand-name sm">Rocky Mountain News</span><span class="brand-tag">Sports</span>
+</footer>
+
+<script>
+(function () {
+  var filter = document.getElementById('league-filter');
+  var groups = document.querySelectorAll('.strip-group');
+  filter.addEventListener('change', function () {
+    groups.forEach(function (g) {
+      g.style.display = (!filter.value || g.dataset.league === filter.value) ? '' : 'none';
+    });
+    document.getElementById('strip-scroll').scrollLeft = 0;
+  });
+  document.getElementById('strip-arrow').addEventListener('click', function () {
+    document.getElementById('strip-scroll').scrollBy({left: 420, behavior: 'smooth'});
+  });
+})();
+</script>
 </body>
 </html>

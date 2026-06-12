@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os
 import sqlite3
+import zlib
 from typing import Any
 
 
@@ -107,6 +108,74 @@ def get_pitching_leaders(limit: int = 10) -> list[dict]:
         return [dict(r) for r in rows]
     except Exception:
         return []
+
+
+def _split_article(article: str) -> tuple[str, str]:
+    """(headline, body) from gazette prose — first non-empty line is the head."""
+    lines = article.strip().splitlines()
+    head = ""
+    while lines and not head:
+        head = lines.pop(0).strip().lstrip("#").strip()
+    return head, "\n".join(lines).strip()
+
+
+def get_news(limit: int = 6) -> list[dict]:
+    """Gazette articles cached in the sim DB (one per slate_date+voice).
+
+    The table only exists once the sim has generated an article, so a
+    missing table is normal, not an error.
+    """
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return []
+    try:
+        conn = _conn(path)
+        rows = conn.execute("""
+            SELECT slate_date, voice_id, article, created_at
+            FROM gazette_articles
+            ORDER BY slate_date DESC, created_at DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    out = []
+    for r in rows:
+        head, body = _split_article(r["article"])
+        paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
+        out.append({
+            "slate_date": r["slate_date"],
+            "voice_id": r["voice_id"],
+            "headline": head or f"The Gazette — {r['slate_date']}",
+            "lede": paragraphs[0] if paragraphs else "",
+            "paragraphs": paragraphs,
+            "art_seed": zlib.crc32(f"{r['slate_date']}|{r['voice_id']}".encode()),
+        })
+    return out
+
+
+def get_article(slate_date: str, voice_id: str) -> dict[str, Any] | None:
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        conn = _conn(path)
+        r = conn.execute(
+            "SELECT slate_date, voice_id, article, created_at FROM gazette_articles"
+            " WHERE slate_date=? AND voice_id=?", (slate_date, voice_id)
+        ).fetchone()
+        conn.close()
+    except Exception:
+        return None
+    if not r:
+        return None
+    head, body = _split_article(r["article"])
+    return {
+        "slate_date": r["slate_date"],
+        "voice_id": r["voice_id"],
+        "headline": head or f"The Gazette — {r['slate_date']}",
+        "paragraphs": [p.strip() for p in body.split("\n\n") if p.strip()],
+    }
 
 
 def get_game_detail(game_id: int) -> dict[str, Any] | None:

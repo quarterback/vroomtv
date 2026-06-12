@@ -16,6 +16,14 @@ def _db_path() -> str | None:
     return os.environ.get("VIPERBALL_DB") or None
 
 
+def _num(x):
+    """Scores come out of the JSON blob as floats; show 37 rather than 37.0."""
+    try:
+        return int(x) if float(x).is_integer() else x
+    except (TypeError, ValueError):
+        return x
+
+
 def _load_leagues(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
         "SELECT save_key, label, data FROM saves WHERE save_type='pro_league' ORDER BY updated_at DESC"
@@ -55,8 +63,8 @@ def get_recent_scores(limit_per_league: int = 8) -> list[dict]:
                         "matchup_key": matchup_key,
                         "home_name": res.get("home_name", ""),
                         "away_name": res.get("away_name", ""),
-                        "home_score": res.get("home_score", 0),
-                        "away_score": res.get("away_score", 0),
+                        "home_score": _num(res.get("home_score", 0)),
+                        "away_score": _num(res.get("away_score", 0)),
                     })
                     collected += 1
                 if collected >= limit_per_league:
@@ -151,8 +159,8 @@ def get_game_detail(save_key: str, week: int, matchup_key: str) -> dict[str, Any
             "matchup_key": matchup_key,
             "home_name": game.get("home_name", ""),
             "away_name": game.get("away_name", ""),
-            "home_score": game.get("home_score", 0),
-            "away_score": game.get("away_score", 0),
+            "home_score": _num(game.get("home_score", 0)),
+            "away_score": _num(game.get("away_score", 0)),
             "result": game.get("result", {}),
         }
     except Exception:

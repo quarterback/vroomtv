@@ -78,3 +78,46 @@ with real data; both viperball leagues appeared as separate sections.
   (X11), and 5000 collides with macOS AirPlay.
 
 Still not done: deployment config (Dockerfile / fly.toml / Procfile).
+
+---
+
+## Redesign: modern sports-front (2026-06-12)
+
+The 1940s wire-service aesthetic was replaced wholesale with a modern
+sports-news design (The Athletic × Sporting News × ESPN's scoreboard strip),
+per direction. Fonts come from Fontshare: Zodiak (headlines, article body),
+Switzer (UI, nav, data).
+
+- **Scoreboard strip** on every page: league-label groups, per-card status
+  line, bold winners with red markers, a league filter dropdown, and a
+  scroll arrow — modeled directly on ESPN's strip.
+- **News**: the front page leads with a story. Real articles come from the
+  baseball gazette's `gazette_articles` cache (new `get_news`/`get_article`
+  in the baseball adapter; `/news` + article pages). Until stories are
+  generated, `newsroom.py` builds placeholder headlines by parsing results
+  (plural sports-style verbs, margin-scaled: edge/beat/top/pound/rout) and
+  picks a lead by drama (playoffs, then closeness × scoring).
+- **Pixel art**: deterministic mirrored-sprite SVGs (`/art/<seed>.svg`,
+  seeded from the game URL / article key) stand in for photography on the
+  lead story and headline thumbnails.
+- Game pages got matchup headers; GTT tennis lines now resolve pids to
+  player names (previously the match page showed no names at all) and slot
+  labels come from the data instead of positional guessing.
+- Verified in headless Chromium against live test DBs: front, news,
+  article, standings, leaders, one game page per sport, plus the strip's
+  dropdown filter.
+
+---
+
+## HTTP self-sync (2026-06-12)
+
+The fly-CLI sync script didn't match how the project is operated (no CLI),
+so data flow is now hub-pull over HTTP: each sim gained a token-protected
+`/export/db` route (WAL-safe `sqlite3` backup snapshot; 404 unless
+`EXPORT_TOKEN` is set and matched), and the hub's `sync.py` downloads every
+configured feed to the adapter paths atomically — on a timer
+(`SYNC_INTERVAL_MIN`, default 30 in fly.toml) and via `/sync?token=`.
+Setup is one shared secret set in the Fly dashboard on all four apps.
+Verified end-to-end locally: three sims served exports (404 without token),
+an empty hub pulled all three via `/sync` and the front page went fully
+live without a restart.

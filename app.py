@@ -1,34 +1,110 @@
-"""Unassociated Press Sports Wire — cross-sport aggregator hub."""
+"""Rocky Mountain News (Sports) — cross-sport scores and news hub."""
 from __future__ import annotations
 import os
 from datetime import datetime
-from flask import Flask, render_template, abort, request
+from flask import Flask, Response, render_template, abort, jsonify, request
 from adapters import baseball, viperball, tennis
+import newsroom
+import sync
 
 app = Flask(__name__)
+sync.start_timer()
 
-_DAYS   = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
-_MONTHS = ["January","February","March","April","May","June",
-           "July","August","September","October","November","December"]
+
+@app.route("/sync", methods=["GET", "POST"])
+def sync_now():
+    """Manual pull of all feeds. Browser-friendly: /sync?token=<SYNC_TOKEN>."""
+    token = os.environ.get("SYNC_TOKEN")
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
+        or request.args.get("token", "")
+    if not token or supplied != token:
+        abort(404)
+    return jsonify({"results": sync.sync_all(), "last": sync.last_sync()["at"]})
+
+
+def _ticker(per_sport: int = 8) -> list[dict]:
+    """Scoreboard strip shown on every page; league-tagged for the filter."""
+    items = []
+    for g in baseball.get_recent_scores(limit=per_sport):
+        items.append({
+            "sport": "Baseball", "league": "O27 League",
+            "away": g["away_abbrev"], "home": g["home_abbrev"],
+            "away_score": g["away_score"], "home_score": g["home_score"],
+            "note": "Playoffs" if g["is_playoff"] else "Final",
+            "url": f"/game/baseball/{g['id']}",
+        })
+    for g in viperball.get_recent_scores(limit_per_league=per_sport):
+        items.append({
+            "sport": "Viperball", "league": g["league"],
+            "away": g["away_name"][:3].upper(), "home": g["home_name"][:3].upper(),
+            "away_score": g["away_score"], "home_score": g["home_score"],
+            "note": f"Wk {g['week']}",
+            "url": f"/game/viperball/{g['save_key']}/{g['week']}/{g['matchup_key']}",
+        })
+    for g in tennis.get_recent_scores(limit_per_source=per_sport):
+        items.append({
+            "sport": "Tennis", "league": g["league"],
+            "away": g.get("away_abbrev") or g["away_name"][:3].upper(),
+            "home": g.get("home_abbrev") or g["home_name"][:3].upper(),
+            "away_score": g["away_points"], "home_score": g["home_points"],
+            "note": "Final",
+            "url": f"/game/tennis/{g['source']}/{g['id']}",
+        })
+    return items
+
 
 @app.context_processor
 def inject_globals():
-    now = datetime.now()
-    wire_date = f"{_DAYS[now.weekday()]}, {_MONTHS[now.month-1]} {now.day}, {now.year}"
-    return {"wire_date": wire_date}
+    ticker = _ticker()
+    leagues = []
+    for t in ticker:
+        key = (t["sport"], t["league"])
+        if key not in leagues:
+            leagues.append(key)
+    return {
+        "dateline": datetime.now().strftime("%A, %B %d, %Y").replace(" 0", " "),
+        "ticker": ticker,
+        "ticker_leagues": leagues,
+    }
+
+
+@app.route("/art/<int:seed>.svg")
+def art(seed: int):
+    resp = Response(newsroom.pixel_art_svg(seed), mimetype="image/svg+xml")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 @app.route("/")
 def index():
+    baseball_scores = baseball.get_recent_scores()
+    viperball_scores = viperball.get_recent_scores()
+    tennis_scores = tennis.get_recent_scores()
+    articles = baseball.get_news(limit=5)
+    wire = newsroom.build_wire(baseball_scores, viperball_scores, tennis_scores)
     return render_template(
         "index.html",
-        baseball_scores=baseball.get_recent_scores(),
-        viperball_scores=viperball.get_recent_scores(),
-        tennis_scores=tennis.get_recent_scores(),
+        articles=articles, wire=wire,
+        baseball_scores=baseball_scores,
+        viperball_scores=viperball_scores,
+        tennis_scores=tennis_scores,
         baseball_configured=bool(os.environ.get("BASEBALL_DB")),
         viperball_configured=bool(os.environ.get("VIPERBALL_DB")),
         tennis_configured=bool(os.environ.get("TENNIS_DB")),
     )
+
+
+@app.route("/news")
+def news():
+    return render_template("news.html", articles=baseball.get_news(limit=50))
+
+
+@app.route("/news/<slate_date>/<voice_id>")
+def article(slate_date: str, voice_id: str):
+    a = baseball.get_article(slate_date, voice_id)
+    if not a:
+        abort(404)
+    return render_template("article.html", a=a)
 
 
 @app.route("/standings")

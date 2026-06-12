@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}News — Rocky Mountain News{% endblock %}
+{% block content %}
+<h1 class="page-title">News</h1>
+{% if not articles %}
+<div class="empty-note">
+  No stories filed yet. Baseball articles generate from the O27 Gazette and
+  appear here automatically; other leagues to follow.
+</div>
+{% else %}
+<div class="story-list">
+  {% for a in articles %}
+  <article class="story-item">
+    <span class="kicker">Baseball &middot; The Gazette</span>
+    <h2><a href="{{ url_for('article', slate_date=a.slate_date, voice_id=a.voice_id) }}">{{ a.headline }}</a></h2>
+    {% if a.lede %}<p class="lede">{{ a.lede[:220] }}{% if a.lede|length > 220 %}&hellip;{% endif %}</p>{% endif %}
+    <div class="byline">{{ a.voice_id | replace('_', ' ') | title }} &middot; {{ a.slate_date }}</div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

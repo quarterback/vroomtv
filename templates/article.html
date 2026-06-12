@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ a.headline }} — Rocky Mountain News{% endblock %}
+{% block content %}
+<article class="article-page">
+  <span class="kicker">Baseball &middot; The Gazette</span>
+  <h1>{{ a.headline }}</h1>
+  <div class="byline">{{ a.voice_id | replace('_', ' ') | title }} &middot; {{ a.slate_date }}</div>
+  <div class="article-body">
+    {% for p in a.paragraphs %}<p>{{ p }}</p>{% endfor %}
+  </div>
+</article>
+{% endblock %}

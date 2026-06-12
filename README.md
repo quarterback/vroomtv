@@ -1,9 +1,10 @@
-# vroomtv — The Unassociated Press Sports Wire
+# vroomtv — Rocky Mountain News (Sports)
 
-A cross-sport scores hub in the style of a 1940s wire-service broadsheet.
-It aggregates live results from three sports sims into one front page:
-unified scores, standings, stat leaders, and game detail pages — pure
-server-rendered HTML, no JavaScript.
+A cross-sport sports section in a modern newspaper design (The Athletic ×
+Sporting News, with an ESPN-style scoreboard strip). It aggregates live
+results from three sports sims into one front page: scores, standings,
+stat leaders, news stories, and game detail pages — server-rendered HTML
+with a few lines of JS for the scoreboard's league filter.
 
 | Sport | Sim | Live site |
 | --- | --- | --- |
@@ -45,6 +46,49 @@ optional.
 > `o27v2/saves/<save-hash>.db` rather than `o27v2/o27v2.db` — point
 > `BASEBALL_DB` at the actual file.
 
+## Deploying
+
+The repo ships a `Dockerfile` and `fly.toml` (mirroring the three sims,
+which all run on Fly). From the repo root:
+
+```bash
+fly launch --copy-config --no-deploy   # first time: creates the app + volume
+fly deploy
+```
+
+**Data flows in by itself.** Each sim exposes a token-protected
+`/export/db` route, and the hub pulls all three feeds every
+`SYNC_INTERVAL_MIN` minutes (default 30) into its volume — no CLI, no
+manual uploads. One-time setup, all in the Fly dashboard (each app →
+Secrets):
+
+1. Generate a secret per sim and enter it in two places — the sim and the
+   hub:
+
+   | Value | Sim app → secret name | vroomtv → secret name |
+   | --- | --- | --- |
+   | secret #1 | hybrid-baseball → `EXPORT_TOKEN` | `BASEBALL_SYNC_TOKEN` |
+   | secret #2 | viperball → `EXPORT_TOKEN` | `VIPERBALL_SYNC_TOKEN` |
+   | secret #3 | tennis-team-manager → `EXPORT_TOKEN` | `TENNIS_SYNC_TOKEN` |
+   | secret #4 | — | `SYNC_TOKEN` (guards the manual `/sync` URL) |
+
+   (Using one value everywhere also works: set it as each sim's
+   `EXPORT_TOKEN` and as `SYNC_TOKEN` on vroomtv — the per-sport tokens
+   fall back to `SYNC_TOKEN`.)
+2. Redeploy the three sims (their export routes ship in each repo) and the
+   hub.
+
+That's it. To force an immediate refresh, open
+`https://<your-hub>/sync?token=<SYNC_TOKEN>` in a browser — it reports
+per-sport results. Any unconfigured or unreachable sport shows a
+placeholder, never an error.
+
+(`scripts/sync-dbs.sh` remains as an alternative for fly-CLI users.)
+
+This won't work on static/serverless hosts (Netlify, GitHub Pages, Vercel's
+static mode): the hub is a long-running Flask server that reads SQLite files
+from local disk.
+
 ## Routes
 
 | Route | Page |
@@ -62,8 +106,9 @@ optional.
 app.py            Flask routes (thin — rendering only)
 manage.py         runserver entry point
 adapters/         one read-only DB adapter per sport
-templates/        broadsheet UI (Jinja, no JS)
-static/style.css  ink-on-newsprint palette, wire-grid layout
+newsroom.py       placeholder headlines parsed from results + pixel-art SVGs
+templates/        Jinja UI: scoreboard strip, front page, news, box scores
+static/style.css  the design system (Fontshare: Boska / Zodiak / Switzer)
 docs/             after-action report (build + verification history)
 ```
 

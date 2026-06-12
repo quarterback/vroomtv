@@ -1,85 +1,71 @@
 {% extends "base.html" %}
-{% block title %}Statistical Leaders — The U.A.P. Sports Wire{% endblock %}
+{% block title %}Leaders — Rocky Mountain News{% endblock %}
 {% block content %}
-<div class="dept-head mt1"><h2>Statistical Leaders &mdash; Current Season</h2></div>
-<hr class="broad-rule heavy">
+<h1 class="page-title">Leaders</h1>
 
-<div class="leaders-section">
-  <h2>⚾ &nbsp;Diamond Leaders</h2>
-  <div class="leaders-cols">
-    <div class="leaders-subsection">
-      <h3>Batting Average</h3>
-      {% if not baseball_batting %}<div class="wire-notice">No data available</div>
+<section>
+  <h2 class="sect">Baseball</h2>
+  <div class="table-grid wide">
+    <table class="data-table">
+      <thead><tr><th>Batting Average</th><th class="n">G</th><th class="n">AB</th><th class="n">H</th><th class="n">HR</th><th class="n">RBI</th><th class="n">AVG</th></tr></thead>
+      <tbody>
+      {% for p in baseball_batting %}
+      <tr><td class="t">{{ p.player_name }} <span class="meta">{{ p.team_abbrev }}</span></td>
+          <td class="n">{{ p.g }}</td><td class="n">{{ p.ab }}</td><td class="n">{{ p.h }}</td><td class="n">{{ p.hr }}</td><td class="n">{{ p.rbi }}</td>
+          <td class="n"><b>{{ '%.3f' | format(p.avg) }}</b></td></tr>
       {% else %}
-        <table class="leaders-table">
-          <thead><tr><th>#</th><th>Player</th><th>Club</th><th>G</th><th>AB</th><th>H</th><th>HR</th><th>RBI</th><th>AVG</th></tr></thead>
-          <tbody>
-          {% for p in baseball_batting %}
-            <tr><td class="rank">{{ loop.index }}</td><td class="player-name">{{ p.player_name }}</td><td>{{ p.team_abbrev }}</td><td>{{ p.g }}</td><td>{{ p.ab }}</td><td>{{ p.h }}</td><td>{{ p.hr }}</td><td>{{ p.rbi }}</td><td><strong>{{ '%.3f'|format(p.avg) }}</strong></td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      {% endif %}
-    </div>
-    <div class="leaders-subsection">
-      <h3>Earned Run Average</h3>
-      {% if not baseball_pitching %}<div class="wire-notice">No data available</div>
+      <tr><td class="t empty-note">No data</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <table class="data-table">
+      <thead><tr><th>Earned Run Average</th><th class="n">G</th><th class="n">W</th><th class="n">L</th><th class="n">K</th><th class="n">ERA</th></tr></thead>
+      <tbody>
+      {% for p in baseball_pitching %}
+      <tr><td class="t">{{ p.player_name }} <span class="meta">{{ p.team_abbrev }}</span></td>
+          <td class="n">{{ p.g }}</td><td class="n">{{ p.w }}</td><td class="n">{{ p.l }}</td><td class="n">{{ p.k }}</td>
+          <td class="n"><b>{{ '%.2f' | format(p.era) }}</b></td></tr>
       {% else %}
-        <table class="leaders-table">
-          <thead><tr><th>#</th><th>Player</th><th>Club</th><th>G</th><th>W</th><th>L</th><th>K</th><th>ERA</th></tr></thead>
-          <tbody>
-          {% for p in baseball_pitching %}
-            <tr><td class="rank">{{ loop.index }}</td><td class="player-name">{{ p.player_name }}</td><td>{{ p.team_abbrev }}</td><td>{{ p.g }}</td><td>{{ p.w }}</td><td>{{ p.l }}</td><td>{{ p.k }}</td><td><strong>{{ '%.2f'|format(p.era) }}</strong></td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      {% endif %}
-    </div>
+      <tr><td class="t empty-note">No data</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
-</div>
+</section>
 
-<hr class="broad-rule heavy">
-<div class="leaders-section">
-  <h2>🏉 &nbsp;Viperball Leaders</h2>
-  {% if not viperball_leaders %}
-    <div class="wire-notice">No data — VIPERBALL_DB not configured or no games played</div>
-  {% else %}
+<section>
+  <h2 class="sect">Viperball</h2>
+  <div class="table-grid wide">
     {% for lg in viperball_leaders %}
-      <div class="leaders-subsection">
-        <h3>{{ lg.league }} &mdash; Rushing Yards</h3>
-        {% if not lg.leaders %}<div class="wire-notice">No players on record</div>
-        {% else %}
-          <table class="leaders-table">
-            <thead><tr><th>#</th><th>Player</th><th>Pos</th><th>G</th><th>Rush Yds</th><th>TD</th><th>KP Yds</th></tr></thead>
-            <tbody>
-            {% for p in lg.leaders %}
-              <tr><td class="rank">{{ loop.index }}</td><td class="player-name">{{ p.name }}</td><td>{{ p.position }}</td><td>{{ p.games }}</td><td><strong>{{ p.rushing_yards }}</strong></td><td>{{ p.touchdowns }}</td><td>{{ p.kick_pass_yards }}</td></tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        {% endif %}
-      </div>
+    <table class="data-table">
+      <thead><tr><th>{{ lg.league }} &middot; Rushing</th><th class="n">G</th><th class="n">Yds</th><th class="n">TD</th><th class="n">KP Yds</th></tr></thead>
+      <tbody>
+      {% for p in lg.leaders %}
+      <tr><td class="t">{{ p.name }} <span class="meta">{{ p.position }}</span></td>
+          <td class="n">{{ p.games }}</td><td class="n"><b>{{ p.rushing_yards }}</b></td><td class="n">{{ p.touchdowns }}</td><td class="n">{{ p.kick_pass_yards }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-note">No data</div>
     {% endfor %}
-  {% endif %}
-</div>
+  </div>
+</section>
 
-<hr class="broad-rule heavy">
-<div class="leaders-section">
-  <h2>🎾 &nbsp;Court Leaders</h2>
-  {% if not tennis_leaders %}
-    <div class="wire-notice">No data — TENNIS_DB not configured or insufficient matches</div>
-  {% else %}
-    <div class="leaders-subsection">
-      <h3>Singles Match Wins (min. 3 matches)</h3>
-      <table class="leaders-table">
-        <thead><tr><th>#</th><th>Player</th><th>Club</th><th>League</th><th>M</th><th>W</th><th>Pct</th></tr></thead>
-        <tbody>
-        {% for p in tennis_leaders %}
-          <tr><td class="rank">{{ loop.index }}</td><td class="player-name">{{ p.name }}</td><td>{{ p.team or '&mdash;' }}</td><td>{{ p.league }}</td><td>{{ p.matches }}</td><td><strong>{{ p.wins }}</strong></td><td>{{ '%.3f'|format(p.win_pct) }}</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% endif %}
-</div>
+<section>
+  <h2 class="sect">Tennis</h2>
+  <div class="table-grid">
+    <table class="data-table">
+      <thead><tr><th>Singles Wins (min. 3)</th><th></th><th class="n">M</th><th class="n">W</th><th class="n">Pct</th></tr></thead>
+      <tbody>
+      {% for p in tennis_leaders %}
+      <tr><td class="t">{{ p.name }} <span class="meta">{{ p.team }}</span></td><td>{{ p.league }}</td>
+          <td class="n">{{ p.matches }}</td><td class="n"><b>{{ p.wins }}</b></td><td class="n">{{ '%.3f' | format(p.win_pct) }}</td></tr>
+      {% else %}
+      <tr><td class="t empty-note">No data</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}
