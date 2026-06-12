@@ -12,6 +12,17 @@ app = Flask(__name__)
 sync.start_timer()
 
 
+def _feed_auth_ok(sport: str) -> bool:
+    """Auth for per-sport upload/download: the sport's own sync token (the
+    same value as that sim's EXPORT_TOKEN — already shared between the
+    pair) or the hub-wide SYNC_TOKEN. Fly secrets are write-only, so sims
+    authenticate with the secret they already hold."""
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
+        or request.args.get("token", "")
+    valid = [os.environ.get(f"{sport.upper()}_SYNC_TOKEN"), os.environ.get("SYNC_TOKEN")]
+    return any(t and supplied == t for t in valid)
+
+
 @app.route("/upload/<sport>", methods=["POST", "PUT"])
 def upload_db(sport: str):
     """Receive a sim DB pushed from elsewhere (e.g. a Fly web console on a
@@ -22,10 +33,7 @@ def upload_db(sport: str):
     """
     dest_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
                 "tennis": "TENNIS_DB"}.get(sport)
-    token = os.environ.get("SYNC_TOKEN")
-    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
-        or request.args.get("token", "")
-    if not dest_env or not token or supplied != token:
+    if not dest_env or not _feed_auth_ok(sport):
         abort(404)
     dest = os.environ.get(dest_env)
     if not dest:
@@ -57,10 +65,7 @@ def download_db(sport: str):
     from flask import send_file
     src_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
                "tennis": "TENNIS_DB"}.get(sport)
-    token = os.environ.get("SYNC_TOKEN")
-    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
-        or request.args.get("token", "")
-    if not src_env or not token or supplied != token:
+    if not src_env or not _feed_auth_ok(sport):
         abort(404)
     src = os.environ.get(src_env)
     if not src or not os.path.exists(src):
