@@ -237,6 +237,113 @@ def _qual_floors(conn: sqlite3.Connection, season: int) -> tuple[int, int]:
     return max(8, int(team_games * 2)), max(6, int(team_games * 3))
 
 
+def get_leader_boards(limit: int = 10) -> list[dict]:
+    """All leader boards for the O27 league: rate + counting categories
+    from the per-game tables, plus the portal's advanced boards (wOBA /
+    WHIP etc.) when synced. Shape matches the viperball boards so the
+    leaders page renders every sport the same way."""
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return []
+    boards = []
+    try:
+        conn = _conn(path)
+        season = _current_season(conn)
+        ab_floor, outs_floor = _qual_floors(conn, season)
+        bat = [dict(r) for r in conn.execute("""
+            SELECT p.name AS name, t.abbrev AS team,
+                   COUNT(DISTINCT b.game_id) AS g, SUM(b.pa) AS pa,
+                   SUM(b.ab) AS ab, SUM(b.hits) AS h, SUM(b.hr) AS hr,
+                   SUM(b.rbi) AS rbi, SUM(b.runs) AS r, SUM(b.bb) AS bb,
+                   SUM(b.k) AS k, COALESCE(SUM(b.sb), 0) AS sb,
+                   ROUND(CAST(SUM(b.hits) AS REAL) / MAX(SUM(b.ab), 1), 3) AS avg
+            FROM game_batter_stats b
+            JOIN games gm ON gm.id = b.game_id AND gm.season = ? AND gm.played = 1
+            JOIN players p ON p.id = b.player_id
+            JOIN teams t ON t.id = b.team_id
+            WHERE b.phase = 0 AND b.is_playoff = 0
+            GROUP BY b.player_id
+        """, (season,)).fetchall()]
+        pit = [dict(r) for r in conn.execute("""
+            SELECT pl.name AS name, t.abbrev AS team,
+                   COUNT(DISTINCT p.game_id) AS g, SUM(p.k) AS k,
+                   SUM(p.er) AS er, SUM(p.bb) AS bb,
+                   SUM(p.outs_recorded) AS outs,
+                   ROUND(CAST(SUM(p.er) AS REAL) * 27.0 / MAX(SUM(p.outs_recorded), 1), 2) AS era
+            FROM game_pitcher_stats p
+            JOIN games gm ON gm.id = p.game_id AND gm.season = ? AND gm.played = 1
+            JOIN players pl ON pl.id = p.player_id
+            JOIN teams t ON t.id = p.team_id
+            WHERE p.phase = 0 AND p.is_playoff = 0
+            GROUP BY p.player_id
+        """, (season,)).fetchall()]
+        conn.close()
+    except Exception:
+        return []
+    for r in pit:
+        r["ip"] = f"{(r['outs'] or 0) // 3}.{(r['outs'] or 0) % 3}"
+
+    def board(title, rows, sort, cols, reverse=True, floor=None, floor_key=None):
+        pool = [r for r in rows if (r.get(floor_key) or 0) >= floor] if floor \
+            else [r for r in rows if r.get(sort)]
+        if not pool:
+            return
+        pool.sort(key=lambda r: (r.get(sort) or 0), reverse=reverse)
+        boards.append({"title": title, "sort": sort, "cols": cols,
+                       "rows": pool[:limit]})
+
+    board("Batting average", bat, "avg",
+          [("G", "g", None), ("AB", "ab", None), ("H", "h", None),
+           ("AVG", "avg", "%.3f")], floor=ab_floor, floor_key="ab")
+    board("Home runs", bat, "hr",
+          [("G", "g", None), ("AB", "ab", None), ("HR", "hr", None),
+           ("RBI", "rbi", None)])
+    board("RBI", bat, "rbi",
+          [("G", "g", None), ("HR", "hr", None), ("RBI", "rbi", None)])
+    board("Stolen bases", bat, "sb",
+          [("G", "g", None), ("SB", "sb", None), ("R", "r", None)])
+    board("ERA", pit, "era",
+          [("G", "g", None), ("IP", "ip", None), ("K", "k", None),
+           ("ERA", "era", "%.2f")], reverse=False, floor=outs_floor,
+          floor_key="outs")
+    board("Strikeouts", pit, "k",
+          [("G", "g", None), ("IP", "ip", None), ("K", "k", None),
+           ("BB", "bb", None)])
+
+    portal = _portal_leaders()
+    if portal:
+        adv_bat = []
+        for p in portal.get("batting", [])[:limit]:
+            adv_bat.append({"name": p.get("player_name", ""),
+                            "team": p.get("team_abbrev", ""),
+                            "pa": p.get("pa", 0), "avg": p.get("avg", 0),
+                            "obp": p.get("obp", 0), "slg": p.get("slg", 0),
+                            "woba": p.get("woba", 0),
+                            "k_pct": (p.get("k_pct") or 0) * 100,
+                            "bb_pct": (p.get("bb_pct") or 0) * 100})
+        if adv_bat:
+            boards.append({"title": "Advanced batting", "sort": "woba",
+                           "cols": [("PA", "pa", None), ("AVG", "avg", "%.3f"),
+                                    ("OBP", "obp", "%.3f"), ("SLG", "slg", "%.3f"),
+                                    ("wOBA", "woba", "%.3f"), ("K%", "k_pct", "%.1f"),
+                                    ("BB%", "bb_pct", "%.1f")],
+                           "rows": adv_bat})
+        adv_pit = []
+        for p in portal.get("pitching", [])[:limit]:
+            adv_pit.append({"name": p.get("player_name", ""),
+                            "team": p.get("team_abbrev", ""),
+                            "ip": p.get("ip", 0), "era": p.get("era", 0),
+                            "whip": p.get("whip", 0), "k9": p.get("k9", 0),
+                            "bb9": p.get("bb9", 0)})
+        if adv_pit:
+            boards.append({"title": "Advanced pitching", "sort": "era",
+                           "cols": [("IP", "ip", "%.1f"), ("ERA", "era", "%.2f"),
+                                    ("WHIP", "whip", "%.2f"), ("K/9", "k9", "%.1f"),
+                                    ("BB/9", "bb9", "%.1f")],
+                           "rows": adv_pit})
+    return boards
+
+
 def get_batting_leaders(limit: int = 10) -> list[dict]:
     portal = _portal_leaders()
     if portal and portal.get("batting"):

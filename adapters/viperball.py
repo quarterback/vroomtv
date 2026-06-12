@@ -103,12 +103,26 @@ def _college_leagues(path: str) -> list[dict]:
                 acc = s["players"].setdefault((team, p.get("name", "")), {
                     "name": p.get("name", ""), "team_key": team,
                     "position": p.get("position", ""), "games": 0,
-                    "rushing_yards": 0, "touchdowns": 0,
-                    "kick_pass_yards": 0, "total_yards": 0})
+                    "rushing_yards": 0, "rushing_carries": 0, "touchdowns": 0,
+                    "kick_pass_yards": 0, "kick_pass_completions": 0,
+                    "kick_pass_tds": 0, "lateral_yards": 0, "laterals": 0,
+                    "tackles": 0, "tfl": 0, "sacks": 0,
+                    "dk_made": 0, "dk_att": 0, "total_yards": 0})
                 acc["games"] += 1
                 acc["rushing_yards"] += p.get("rushing_yards", 0)
+                acc["rushing_carries"] += p.get("rush_carries", p.get("rushing_carries", 0))
                 acc["touchdowns"] += p.get("tds", 0)
                 acc["kick_pass_yards"] += p.get("kick_pass_yards", 0)
+                acc["kick_pass_completions"] += p.get("kick_passes_completed",
+                                                      p.get("kick_pass_completions", 0))
+                acc["kick_pass_tds"] += p.get("kick_pass_tds", 0)
+                acc["lateral_yards"] += p.get("lateral_yards", 0)
+                acc["laterals"] += p.get("laterals_thrown", p.get("laterals", 0))
+                acc["tackles"] += p.get("tackles", 0)
+                acc["tfl"] += p.get("tfl", 0)
+                acc["sacks"] += p.get("sacks", 0)
+                acc["dk_made"] += p.get("dk_made", 0)
+                acc["dk_att"] += p.get("dk_att", p.get("dk_attempted", 0))
                 acc["total_yards"] += p.get("all_purpose_yards", p.get("yards", 0))
     leagues = []
     for sid, s in sessions.items():
@@ -227,6 +241,40 @@ def get_standings() -> list[dict]:
     return out
 
 
+# Leader boards: (title, sort key, columns as (label, key, fmt|None)).
+# A board only renders when at least one player has a nonzero sort stat,
+# so leagues without e.g. drop kicks don't show an empty table.
+_BOARDS = [
+    ("Rushing", "rushing_yards",
+     [("Yds", "rushing_yards", None), ("Car", "rushing_carries", None), ("TD", "touchdowns", None)]),
+    ("Kick passing", "kick_pass_yards",
+     [("Yds", "kick_pass_yards", None), ("Cmp", "kick_pass_completions", None), ("TD", "kick_pass_tds", None)]),
+    ("Laterals", "lateral_yards",
+     [("Yds", "lateral_yards", None), ("Thrown", "laterals", None)]),
+    ("Defense", "tackles",
+     [("Tkl", "tackles", None), ("TFL", "tfl", None), ("Sacks", "sacks", None)]),
+    ("Kicking", "dk_made",
+     [("DK", "dk_made", None), ("Att", "dk_att", None)]),
+    ("All-purpose", "total_yards",
+     [("Yds", "total_yards", None), ("TD", "touchdowns", None)]),
+]
+
+
+def _build_boards(players: list[dict], limit: int = 10) -> list[dict]:
+    boards = []
+    for title, sort_key, cols in _BOARDS:
+        rows = [p for p in players if p.get(sort_key, 0)]
+        if not rows:
+            continue
+        rows.sort(key=lambda p: -p.get(sort_key, 0))
+        for r in rows:
+            r.setdefault("team", r.get("team_key", ""))
+        boards.append({"title": title, "sort": sort_key,
+                       "cols": [("Pos", "position", None), ("G", "games", None)] + cols,
+                       "rows": rows[:limit]})
+    return boards
+
+
 def get_stat_leaders(limit: int = 10) -> list[dict]:
     path = _db_path()
     if not path or not os.path.exists(path):
@@ -247,16 +295,26 @@ def get_stat_leaders(limit: int = 10) -> list[dict]:
                         "position": ps.get("position", ""),
                         "games": ps.get("games", 0),
                         "rushing_yards": ps.get("rushing_yards", 0),
+                        "rushing_carries": ps.get("rushing_carries", 0),
                         "touchdowns": ps.get("touchdowns", 0),
                         "kick_pass_yards": ps.get("kick_pass_yards", 0),
+                        "kick_pass_completions": ps.get("kick_pass_completions", 0),
+                        "kick_pass_tds": ps.get("kick_pass_tds", 0),
+                        "lateral_yards": ps.get("lateral_yards", 0),
+                        "laterals": ps.get("laterals", 0),
+                        "tackles": ps.get("tackles", 0),
+                        "tfl": ps.get("tfl", 0),
+                        "sacks": ps.get("sacks", 0),
+                        "dk_made": ps.get("dk_made", 0),
+                        "dk_att": ps.get("dk_attempted", 0),
                         "total_yards": ps.get("total_yards", 0),
                     })
-            all_players.sort(key=lambda p: -p["rushing_yards"])
             out.append({"league": lg["label"], "save_key": lg["save_key"],
-                        "tier": "Pro", "leaders": all_players[:limit]})
+                        "tier": "Pro", "boards": _build_boards(all_players, limit)})
         for lg in _college_leagues(path):
             out.append({"league": lg["label"], "save_key": lg["save_key"],
-                        "tier": "College", "leaders": lg["leaders"][:limit]})
+                        "tier": "College",
+                        "boards": _build_boards(lg["leaders"], limit)})
     except Exception:
         pass
     return out

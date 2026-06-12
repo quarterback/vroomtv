@@ -258,44 +258,75 @@ def standings():
     return render_template("standings.html", catalog=catalog, entry=entry, sel=sel)
 
 
+def _tennis_leader_boards() -> list[dict]:
+    """Tennis leagues as generic boards: portal universes get Player
+    Power (STR) + Top Prospects; non-portal leagues get singles wins."""
+    leagues = []
+    portal_labels = set()
+    for u in tennis.get_portal_universes():
+        boards = []
+        power = [{"name": p.get("name", ""), "team": p.get("school", ""),
+                  "class": p.get("class", ""), "w": p.get("w", 0),
+                  "l": p.get("l", 0), "str": p.get("str", 0),
+                  "rel": p.get("rel", 0)}
+                 for p in u.get("player_leaders", [])]
+        if power:
+            boards.append({"title": "Player power (STR)", "sort": "str",
+                           "cols": [("Class", "class", None), ("W", "w", None),
+                                    ("L", "l", None), ("STR", "str", "%.1f"),
+                                    ("Rel", "rel", "%.2f")],
+                           "rows": power})
+        pros = [{"name": p.get("name", ""), "team": p.get("country", ""),
+                 "rk": p.get("rk", 0), "stars": "★" * (p.get("stars") or 0),
+                 "points": p.get("points", 0), "str": p.get("str", 0)}
+                for p in u.get("top_prospects", [])]
+        if pros:
+            boards.append({"title": "Top junior prospects", "sort": "points",
+                           "cols": [("Rk", "rk", None), ("Stars", "stars", None),
+                                    ("Pts", "points", None), ("STR", "str", "%.1f")],
+                           "rows": pros})
+        if boards:
+            leagues.append({"label": u["label"], "tier": "College", "boards": boards})
+            portal_labels.add(u["label"])
+    for lg in tennis.get_stat_leaders():
+        if lg["league"] in portal_labels:
+            continue
+        rows = [{"name": p["name"], "team": p.get("team", ""),
+                 "matches": p["matches"], "wins": p["wins"],
+                 "win_pct": p["win_pct"]} for p in lg["leaders"]]
+        if rows:
+            leagues.append({"label": lg["league"], "tier": lg["tier"], "boards": [
+                {"title": "Singles wins (min. 3)", "sort": "wins",
+                 "cols": [("M", "matches", None), ("W", "wins", None),
+                          ("Pct", "win_pct", "%.3f")], "rows": rows}]})
+    return leagues
+
+
 @app.route("/leaders")
 def leaders():
     catalog = []
-    batting, pitching = baseball.get_batting_leaders(), baseball.get_pitching_leaders()
-    if batting or pitching:
+    bb_boards = baseball.get_leader_boards()
+    if bb_boards:
         catalog.append({"sport": "Baseball", "leagues": [
-            {"label": "O27 League", "kind": "baseball", "tier": "Pro",
-             "batting": batting, "pitching": pitching}]})
+            {"label": "O27 League", "tier": "Pro", "boards": bb_boards}]})
     vb = viperball.get_stat_leaders()
     if vb:
         catalog.append({"sport": "Viperball", "leagues": [
-            {"label": lg["league"], "kind": "viperball", "tier": lg["tier"],
-             "leaders": lg["leaders"]} for lg in vb]})
-    tn = tennis.get_stat_leaders()
-    if tn:
-        catalog.append({"sport": "Tennis", "leagues": [
-            {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
-             "leaders": lg["leaders"]} for lg in tn]})
-    portal = tennis.get_portal_universes()
-    if portal:
-        sport = next((c for c in catalog if c["sport"] == "Tennis"), None)
-        if sport is None:
-            sport = {"sport": "Tennis", "leagues": []}
-            catalog.append(sport)
-        portal_labels = set()
-        for u in portal:
-            sport["leagues"].insert(0, {
-                "label": u["label"], "kind": "tennis_portal", "tier": "College",
-                "player_leaders": u.get("player_leaders", []),
-                "top_prospects": u.get("top_prospects", []),
-            })
-            portal_labels.add(u["label"])
-        sport["leagues"] = [l for l in sport["leagues"]
-                            if not (l["kind"] == "tennis" and l["label"] in portal_labels)]
+            {"label": lg["league"], "tier": lg["tier"], "boards": lg["boards"]}
+            for lg in vb if lg["boards"]]})
+    tn_leagues = _tennis_leader_boards()
+    if tn_leagues:
+        catalog.append({"sport": "Tennis", "leagues": tn_leagues})
     for c in catalog:
         c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
     entry, sel = _pick(catalog)
-    return render_template("leaders.html", catalog=catalog, entry=entry, sel=sel)
+    board = None
+    if sel and sel.get("boards"):
+        want = request.args.get("board", "")
+        board = next((b for b in sel["boards"] if b["title"] == want),
+                     sel["boards"][0])
+    return render_template("leaders.html", catalog=catalog, entry=entry,
+                           sel=sel, board=board)
 
 
 def _duel(stats_a: dict, stats_b: dict, pairs: list) -> list[dict]:
