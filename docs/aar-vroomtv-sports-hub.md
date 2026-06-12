@@ -78,3 +78,31 @@ with real data; both viperball leagues appeared as separate sections.
   (X11), and 5000 collides with macOS AirPlay.
 
 Still not done: deployment config (Dockerfile / fly.toml / Procfile).
+
+---
+
+## Redesign: modern sports-front (2026-06-12)
+
+The 1940s wire-service aesthetic was replaced wholesale with a modern
+sports-news design (The Athletic × Sporting News × ESPN's scoreboard strip),
+per direction. Fonts come from Fontshare: Zodiak (headlines, article body),
+Switzer (UI, nav, data).
+
+- **Scoreboard strip** on every page: league-label groups, per-card status
+  line, bold winners with red markers, a league filter dropdown, and a
+  scroll arrow — modeled directly on ESPN's strip.
+- **News**: the front page leads with a story. Real articles come from the
+  baseball gazette's `gazette_articles` cache (new `get_news`/`get_article`
+  in the baseball adapter; `/news` + article pages). Until stories are
+  generated, `newsroom.py` builds placeholder headlines by parsing results
+  (plural sports-style verbs, margin-scaled: edge/beat/top/pound/rout) and
+  picks a lead by drama (playoffs, then closeness × scoring).
+- **Pixel art**: deterministic mirrored-sprite SVGs (`/art/<seed>.svg`,
+  seeded from the game URL / article key) stand in for photography on the
+  lead story and headline thumbnails.
+- Game pages got matchup headers; GTT tennis lines now resolve pids to
+  player names (previously the match page showed no names at all) and slot
+  labels come from the data instead of positional guessing.
+- Verified in headless Chromium against live test DBs: front, news,
+  article, standings, leaders, one game page per sport, plus the strip's
+  dropdown filter.

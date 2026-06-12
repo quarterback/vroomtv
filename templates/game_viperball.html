@@ -1,51 +1,62 @@
 {% extends "base.html" %}
-{% block title %}{{ away_name }} @ {{ home_name }} — Game Report{% endblock %}
+{% block title %}{{ away_name }} {{ away_score }}–{{ home_score }} {{ home_name }} — Unassociated Press{% endblock %}
 {% block content %}
-<div class="dispatch-header">
-  <div class="dispatch-dateline">From Our Viperball Correspondent &mdash; {{ league }}, Week {{ week }}</div>
-  <div class="dispatch-headline">{{ away_name }} at {{ home_name }}</div>
-  <div class="dispatch-linescore">{{ away_name }} {{ away_score }} <span class="final">Final</span> {{ home_name }} {{ home_score }}</div>
+
+<div class="game-header">
+  <span class="kicker">Viperball &middot; {{ league }} &middot; Week {{ week }}</span>
+  <div class="matchup">
+    <div class="side {{ 'won' if away_score > home_score else 'lost' }}">
+      <span class="team">{{ away_name }}</span><span class="big">{{ away_score }}</span>
+    </div>
+    <span class="status">{{ 'Final' if away_score != home_score else 'Draw' }}</span>
+    <div class="side {{ 'won' if home_score > away_score else 'lost' }}">
+      <span class="big">{{ home_score }}</span><span class="team">{{ home_name }}</span>
+    </div>
+  </div>
 </div>
+
 {% set r = result %}
 {% if r %}
   {% set home_stats = r.get('stats', {}).get('home', {}) %}
   {% set away_stats = r.get('stats', {}).get('away', {}) %}
   {% if home_stats or away_stats %}
-  <div class="box-section">
-    <h3>Team Statistics</h3>
-    <div class="vb-team-stats">
+  <section>
+    <h2 class="sect">Team stats</h2>
+    <div class="table-grid">
       {% for label, stats in [(away_name, away_stats), (home_name, home_stats)] %}
-        <div>
-          <h3 style="font-family:'Playfair Display SC',serif;font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:0.4rem;">{{ label }}</h3>
-          <table class="box-table"><tbody>
-          {% for k, v in stats.items() if v != 0 and k not in ('team','result') %}
-            <tr><td style="text-transform:capitalize;">{{ k | replace('_', ' ') }}</td><td>{{ v }}</td></tr>
-          {% endfor %}
-          </tbody></table>
-        </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-  {% set home_players = r.get('player_stats', {}).get('home', []) %}
-  {% set away_players = r.get('player_stats', {}).get('away', []) %}
-  {% for label, players in [(away_name, away_players), (home_name, home_players)] %}
-    {% if players %}
-    <div class="box-section">
-      <h3>{{ label }} &mdash; Player Statistics</h3>
-      <table class="box-table">
-        <thead><tr><th>Player</th><th>Pos</th><th>Rush Yds</th><th>TD</th><th>Lat Yds</th><th>KP Yds</th><th>Tackles</th></tr></thead>
+      <table class="data-table">
+        <thead><tr><th>{{ label }}</th><th class="n"></th></tr></thead>
         <tbody>
-        {% for p in players %}
-          <tr><td>{{ p.get('name','—') }}</td><td>{{ p.get('position','') }}</td><td>{{ p.get('rushing_yards', p.get('game_rushing_yards', p.get('yards', 0))) }}</td><td>{{ p.get('tds', p.get('touchdowns', p.get('game_touchdowns', 0))) }}</td><td>{{ p.get('lateral_yards', 0) }}</td><td>{{ p.get('kick_pass_yards', 0) }}</td><td>{{ p.get('tackles', 0) }}</td></tr>
+        {% for k, v in stats.items() if v != 0 and k not in ('team', 'result') %}
+        <tr><td class="t cap">{{ k | replace('_', ' ') }}</td><td class="n">{{ v }}</td></tr>
         {% endfor %}
         </tbody>
       </table>
+      {% endfor %}
     </div>
-    {% endif %}
+  </section>
+  {% endif %}
+  {% for label, players in [(away_name, r.get('player_stats', {}).get('away', [])), (home_name, r.get('player_stats', {}).get('home', []))] %}
+  {% if players %}
+  <section>
+    <h2 class="sect">{{ label }}</h2>
+    <table class="data-table full">
+      <thead><tr><th>Player</th><th>Pos</th><th class="n">Rush</th><th class="n">TD</th><th class="n">Lat</th><th class="n">KP</th><th class="n">Tkl</th></tr></thead>
+      <tbody>
+      {% for p in players %}
+      <tr><td class="t">{{ p.get('name', '—') }}</td><td>{{ p.get('position', '') }}</td>
+          <td class="n">{{ p.get('rushing_yards', p.get('game_rushing_yards', p.get('yards', 0))) }}</td>
+          <td class="n">{{ p.get('tds', p.get('touchdowns', p.get('game_touchdowns', 0))) }}</td>
+          <td class="n">{{ p.get('lateral_yards', 0) }}</td>
+          <td class="n">{{ p.get('kick_pass_yards', 0) }}</td>
+          <td class="n">{{ p.get('tackles', 0) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
   {% endfor %}
 {% else %}
-  <div class="wire-notice">Full game data not available for this matchup</div>
+<div class="empty-note">Full game data not available</div>
 {% endif %}
-<div class="mt1"><a href="{{ url_for('index') }}">&larr; Back to Scores</a></div>
 {% endblock %}

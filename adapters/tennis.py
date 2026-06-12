@@ -211,12 +211,26 @@ def get_game_detail(source: str, dual_id: int) -> dict[str, Any] | None:
                 SELECT d.*, s.division, s.gender
                 FROM duals d JOIN seasons s ON s.id=d.season_id WHERE d.id=?
             """, (dual_id,)).fetchone()
-        conn.close()
         if not dual:
+            conn.close()
             return None
         d = dict(dual)
         d["lines"] = json.loads(d["lines_json"]) if d.get("lines_json") else []
         d["source"] = source
+        if source == "gtt":
+            # GTT lines carry pids, not names — resolve via the league roster.
+            names = {}
+            for p in conn.execute(
+                "SELECT pid, data FROM gtt_players WHERE league_id=?", (d["league_id"],)
+            ).fetchall():
+                try:
+                    names[p["pid"]] = json.loads(p["data"]).get("name", p["pid"])
+                except (json.JSONDecodeError, TypeError):
+                    names[p["pid"]] = p["pid"]
+            for line in d["lines"]:
+                line["home_names"] = [names.get(p, p) for p in line.get("home_pids", [])]
+                line["away_names"] = [names.get(p, p) for p in line.get("away_pids", [])]
+        conn.close()
         return d
     except Exception:
         return None

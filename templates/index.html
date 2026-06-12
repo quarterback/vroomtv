@@ -1,109 +1,119 @@
 {% extends "base.html" %}
-{% block title %}Scores — The U.A.P. Sports Wire{% endblock %}
+{% block title %}Unassociated Press — Scores &amp; News{% endblock %}
 {% block content %}
-<div class="dept-head mt1"><h2>Latest Results from the Wire</h2></div>
-<div class="wire-grid">
 
-  <div class="wire-col">
-    <div class="sport-head">
-      <span class="sport-icon">⚾</span>
-      <h3>Diamond Dispatches</h3>
-      <span class="sport-subhead">O27 Baseball League</span>
-    </div>
-    {% if not baseball_configured %}
-      <div class="wire-notice">No wire feed configured<br>Set BASEBALL_DB</div>
-    {% elif not baseball_scores %}
-      <div class="wire-notice">No results on the wire</div>
+{% set lead_article = articles[0] if articles else None %}
+{% set lead_wire = wire.lead if not lead_article else None %}
+
+<div class="front">
+  <div class="front-main">
+
+    {% if lead_article %}
+    <article class="lead-story">
+      <a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}" class="lead-art"><img src="/art/{{ lead_article.art_seed }}.svg" alt=""></a>
+      <span class="kicker">Baseball &middot; The Gazette</span>
+      <h1><a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}">{{ lead_article.headline }}</a></h1>
+      {% if lead_article.lede %}<p class="lede">{{ lead_article.lede }}</p>{% endif %}
+      <div class="byline">{{ lead_article.voice_id | replace('_', ' ') | title }} &middot; {{ lead_article.slate_date }}</div>
+    </article>
+    {% elif lead_wire %}
+    <article class="lead-story">
+      <a href="{{ lead_wire.url }}" class="lead-art"><img src="/art/{{ lead_wire.art_seed }}.svg" alt=""></a>
+      <span class="kicker">{{ lead_wire.sport }} &middot; {{ lead_wire.league }}{% if lead_wire.extra %} &middot; {{ lead_wire.extra }}{% endif %}</span>
+      <h1><a href="{{ lead_wire.url }}">{{ lead_wire.headline }}</a></h1>
+      <div class="byline">From the wire</div>
+    </article>
     {% else %}
-      {% for g in baseball_scores %}
-      <div class="score-card{% if g.is_playoff %} playoff{% endif %}">
-        <div class="score-dispatch">
-          <span class="score-teams"><span class="away">{{ g.away_abbrev }}</span><span class="sep">@</span><span class="home">{{ g.home_abbrev }}</span></span>
-          <span class="score-result">
-            {% if g.away_score > g.home_score %}<span class="winner">{{ g.away_score }}</span>&ndash;{{ g.home_score }}
-            {% else %}{{ g.away_score }}&ndash;<span class="winner">{{ g.home_score }}</span>{% endif %}
-          </span>
-        </div>
-        <div class="score-meta">
-          {{ g.away_name }} at {{ g.home_name }} &nbsp;&bull;&nbsp;
-          <a href="{{ url_for('game_baseball', game_id=g.id) }}">Box Score &rsaquo;</a>
-          {% if g.is_playoff %}&nbsp;&bull;&nbsp;<em>Playoff</em>{% endif %}
-        </div>
-      </div>
-      {% endfor %}
+    <div class="empty-note">No games on record yet. Point the hub at a league database and the front page writes itself.</div>
     {% endif %}
-  </div>
 
-  <div class="wire-col">
-    <div class="sport-head">
-      <span class="sport-icon">🏉</span>
-      <h3>Viperball Bureau</h3>
-      <span class="sport-subhead">Pro League Reports</span>
-    </div>
-    {% if not viperball_configured %}
-      <div class="wire-notice">No wire feed configured<br>Set VIPERBALL_DB</div>
-    {% elif not viperball_scores %}
-      <div class="wire-notice">No results on the wire</div>
-    {% else %}
-      {% set current_league = namespace(name='') %}
-      {% for g in viperball_scores %}
-        {% if g.league != current_league.name %}
-          {% if not loop.first %}<hr class="broad-rule">{% endif %}
-          <div class="score-meta small-caps" style="margin-bottom:0.3rem;">{{ g.league }} &mdash; Wk.{{ g.week }}</div>
-          {% set current_league.name = g.league %}
+    <div class="score-sections">
+      {% macro scorecard(url, away, home, ascore, hscore, note='') %}
+      <a class="card" href="{{ url }}">
+        <span class="card-note">{{ note or 'Final' }}</span>
+        <span class="card-row {{ 'won' if ascore > hscore else 'lost' }}"><span>{{ away }}</span><b>{{ ascore }}</b></span>
+        <span class="card-row {{ 'won' if hscore >= ascore else 'lost' }}"><span>{{ home }}</span><b>{{ hscore }}</b></span>
+      </a>
+      {% endmacro %}
+
+      <section>
+        <h2 class="sect">Baseball</h2>
+        {% if not baseball_configured %}<div class="empty-note">Not configured</div>
+        {% elif not baseball_scores %}<div class="empty-note">No games yet</div>
+        {% else %}
+        <div class="card-grid">
+          {% for g in baseball_scores %}
+          {{ scorecard(url_for('game_baseball', game_id=g.id), g.away_name, g.home_name, g.away_score, g.home_score, 'Playoffs' if g.is_playoff else 'Final') }}
+          {% endfor %}
+        </div>
         {% endif %}
-        <div class="score-card">
-          <div class="score-dispatch">
-            <span class="score-teams"><span class="away">{{ g.away_name[:12] }}</span><span class="sep">@</span><span class="home">{{ g.home_name[:12] }}</span></span>
-            <span class="score-result">
-              {% if g.away_score > g.home_score %}<span class="winner">{{ g.away_score }}</span>&ndash;{{ g.home_score }}
-              {% else %}{{ g.away_score }}&ndash;<span class="winner">{{ g.home_score }}</span>{% endif %}
-            </span>
-          </div>
-          <div class="score-meta"><a href="{{ url_for('game_viperball', save_key=g.save_key, week=g.week, matchup_key=g.matchup_key) }}">Game Report &rsaquo;</a></div>
-        </div>
-      {% endfor %}
-    {% endif %}
-  </div>
+      </section>
 
-  <div class="wire-col">
-    <div class="sport-head">
-      <span class="sport-icon">🎾</span>
-      <h3>Court Correspondents</h3>
-      <span class="sport-subhead">GTT &amp; NCAA Reports</span>
-    </div>
-    {% if not tennis_configured %}
-      <div class="wire-notice">No wire feed configured<br>Set TENNIS_DB</div>
-    {% elif not tennis_scores %}
-      <div class="wire-notice">No results on the wire</div>
-    {% else %}
-      {% set current_league = namespace(name='') %}
-      {% for g in tennis_scores %}
-        {% if g.league != current_league.name %}
-          {% if not loop.first %}<hr class="broad-rule">{% endif %}
-          <div class="score-meta small-caps" style="margin-bottom:0.3rem;">{{ g.league }}</div>
-          {% set current_league.name = g.league %}
+      <section>
+        <h2 class="sect">Viperball</h2>
+        {% if not viperball_configured %}<div class="empty-note">Not configured</div>
+        {% elif not viperball_scores %}<div class="empty-note">No games yet</div>
+        {% else %}
+        {% for league, games in viperball_scores | groupby('league') %}
+        <h3 class="subsect">{{ league }}</h3>
+        <div class="card-grid">
+          {% for g in games %}
+          {{ scorecard(url_for('game_viperball', save_key=g.save_key, week=g.week, matchup_key=g.matchup_key), g.away_name, g.home_name, g.away_score, g.home_score, 'Wk ' ~ g.week) }}
+          {% endfor %}
+        </div>
+        {% endfor %}
         {% endif %}
-        <div class="score-card">
-          <div class="score-dispatch">
-            <span class="score-teams">
-              <span class="away">{{ g.away_abbrev if g.away_abbrev else g.away_name[:14] }}</span>
-              <span class="sep">@</span>
-              <span class="home">{{ g.home_abbrev if g.home_abbrev else g.home_name[:14] }}</span>
-            </span>
-            <span class="score-result">
-              {% if g.away_points > g.home_points %}<span class="winner">{{ g.away_points }}</span>&ndash;{{ g.home_points }}
-              {% else %}{{ g.away_points }}&ndash;<span class="winner">{{ g.home_points }}</span>{% endif %}
-            </span>
-          </div>
-          <div class="score-meta">
-            {{ g.home_name[:20] }} vs. {{ g.away_name[:20] }} &nbsp;&bull;&nbsp;
-            <a href="{{ url_for('game_tennis', source=g.source, dual_id=g.id) }}">Match Card &rsaquo;</a>
-          </div>
+      </section>
+
+      <section>
+        <h2 class="sect">Tennis</h2>
+        {% if not tennis_configured %}<div class="empty-note">Not configured</div>
+        {% elif not tennis_scores %}<div class="empty-note">No matches yet</div>
+        {% else %}
+        {% for league, games in tennis_scores | groupby('league') %}
+        <h3 class="subsect">{{ league }}</h3>
+        <div class="card-grid">
+          {% for g in games %}
+          {{ scorecard(url_for('game_tennis', source=g.source, dual_id=g.id), g.away_name, g.home_name, g.away_points, g.home_points) }}
+          {% endfor %}
         </div>
-      {% endfor %}
-    {% endif %}
+        {% endfor %}
+        {% endif %}
+      </section>
+    </div>
   </div>
 
+  <aside class="rail">
+    <div class="rail-module">
+      <h2 class="rail-head">Top Headlines</h2>
+      {% set rail_articles = articles[1:] if lead_article else articles %}
+      {% if rail_articles %}
+      <ul class="headline-list">
+        {% for a in rail_articles %}
+        <li><a href="{{ url_for('article', slate_date=a.slate_date, voice_id=a.voice_id) }}">{{ a.headline }}</a>
+          <span class="meta">Baseball &middot; {{ a.slate_date }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% set rail_briefs = ([wire.lead] + wire.briefs if lead_article and wire.lead else wire.briefs) %}
+      {% if rail_briefs %}
+      <ul class="brief-list">
+        {% for b in rail_briefs %}
+        <li>
+          <a class="brief" href="{{ b.url }}">
+            <img class="thumb" src="/art/{{ b.art_seed }}.svg" alt="">
+            <span class="brief-text">{{ b.headline }}
+              <span class="meta">{{ b.sport }}{% if b.extra %} &middot; {{ b.extra }}{% endif %}</span>
+            </span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if not rail_briefs and not rail_articles %}
+      <div class="empty-note">Nothing filed yet</div>
+      {% endif %}
+    </div>
+  </aside>
 </div>
 {% endblock %}

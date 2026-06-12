@@ -1,46 +1,50 @@
 {% extends "base.html" %}
-{% block title %}
-  {% if source == 'gtt' %}{{ home_name }} vs. {{ away_name }}{% else %}{{ home }} vs. {{ away }}{% endif %} — Match Card
-{% endblock %}
+{% set h_label = home_name if source == 'gtt' else home %}
+{% set a_label = away_name if source == 'gtt' else away %}
+{% block title %}{{ a_label }} {{ away_points }}–{{ home_points }} {{ h_label }} — Unassociated Press{% endblock %}
 {% block content %}
-<div class="dispatch-header">
-  <div class="dispatch-dateline">
-    From Our Court Correspondent &mdash;
-    {% if source == 'gtt' %}{{ league_name }}, Week {{ week }}
-    {% else %}{{ division | upper }} {{ gender | title }}, Week {{ week }}{% endif %}
-  </div>
-  <div class="dispatch-headline">
-    {% if source == 'gtt' %}{{ away_name }} at {{ home_name }}
-    {% else %}{{ away }} at {{ home }}{% endif %}
-  </div>
-  <div class="dispatch-linescore">
-    {% if source == 'gtt' %}{{ away_abbrev }} {{ away_points }} <span class="final">Final</span> {{ home_abbrev }} {{ home_points }}
-    {% else %}{{ away }} {{ away_points }} <span class="final">Final</span> {{ home }} {{ home_points }}{% endif %}
-  </div>
-</div>
-{% if lines %}
-<div class="box-section">
-  <h3>Match Lines</h3>
-  <div class="tennis-lines">
-  {% for line in lines %}
-    {% set line_num = loop.index %}
-    <div class="tennis-line-row">
-      <span class="line-type">{{ 'Doubles ' ~ line_num if line_num <= 3 else 'Singles ' ~ (line_num - 3) }}</span>
-      <span class="line-players">
-        {% if line.get('home_players') %}{{ line.home_players | join(' / ') }} <span class="ink-light">vs.</span> {{ line.away_players | join(' / ') }}
-        {% elif line.get('home_player') %}{{ line.home_player }} <span class="ink-light">vs.</span> {{ line.away_player }}
-        {% else %}<span class="ink-light">&mdash;</span>{% endif %}
-      </span>
-      <span class="line-score">{% if line.get('score') %}{{ line.score }}{% elif line.get('scoreline') %}{{ line.scoreline }}{% else %}&mdash;{% endif %}</span>
-      <span class="line-winner">
-        {% if line.get('winner') == 'home' %}Home W{% elif line.get('winner') == 'away' %}Away W{% elif line.get('winner') is not none %}W{% endif %}
-      </span>
+
+<div class="game-header">
+  <span class="kicker">Tennis &middot;
+    {% if source == 'gtt' %}{{ league_name }} &middot; Week {{ week }}
+    {% else %}{{ division | upper }} {{ gender | title }} &middot; Week {{ week }}{% endif %}
+  </span>
+  <div class="matchup">
+    <div class="side {{ 'won' if away_points > home_points else 'lost' }}">
+      <span class="team">{{ a_label }}</span><span class="big">{{ away_points }}</span>
     </div>
-  {% endfor %}
+    <span class="status">Final</span>
+    <div class="side {{ 'won' if home_points > away_points else 'lost' }}">
+      <span class="big">{{ home_points }}</span><span class="team">{{ h_label }}</span>
+    </div>
   </div>
 </div>
+
+{% if lines %}
+<section>
+  <h2 class="sect">Lines</h2>
+  <table class="data-table full">
+    <thead><tr><th>Line</th><th>Home</th><th>Away</th><th class="n">Score</th></tr></thead>
+    <tbody>
+    {% for line in lines %}
+    {% set hn = line.get('home_names') or ([line.home_player] if line.get('home_player') else line.get('home_players', [])) %}
+    {% set an = line.get('away_names') or ([line.away_player] if line.get('away_player') else line.get('away_players', [])) %}
+    <tr>
+      <td class="t">{{ line.get('slot', loop.index) }}</td>
+      <td class="{{ 'w' if line.get('home_won') else '' }}">{{ hn | join(' / ') or '—' }}</td>
+      <td class="{{ 'w' if line.get('home_won') == false else '' }}">{{ an | join(' / ') or '—' }}</td>
+      <td class="n">
+        {% if line.get('scoreline') %}{{ line.scoreline }}
+        {% elif line.get('sets') %}{{ line.sets | map('join', '–') | join(', ') }}
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="meta mt-sm">Winners in bold. Score reads from the winning side.</div>
+</section>
 {% else %}
-  <div class="wire-notice mt1">Detailed line-by-line data not available for this dual</div>
+<div class="empty-note">Line detail not available</div>
 {% endif %}
-<div class="mt1"><a href="{{ url_for('index') }}">&larr; Back to Scores</a></div>
 {% endblock %}
