@@ -33,9 +33,28 @@ def _item(sport: str, league: str, home: str, away: str,
         w, l, ws, ls = away, home, as_, hs
     margin = ws - ls
     headline = f"{w} {_verb(margin)} {l}, {ws:g}–{ls:g}"
+    drama = ""
+    if margin == 0:
+        drama = "a stalemate"
+    elif margin <= 2 and ws + ls >= 6:
+        drama = "a one-possession finish"
+    elif margin <= 1:
+        drama = "the slimmest of margins"
+    elif margin >= 10:
+        drama = "a runaway"
+    elif margin >= 5:
+        drama = "a comfortable cushion"
+    if extra == "Playoffs":
+        lede_prefix = "Postseason wire — "
+    elif extra:
+        lede_prefix = f"{extra} report — "
+    else:
+        lede_prefix = ""
+    lede = (f"{lede_prefix}{w} took down {l} {ws:g}–{ls:g}" +
+            (f" in {drama}." if drama else "."))
     return {
         "sport": sport, "league": league, "url": url,
-        "headline": headline, "extra": extra,
+        "headline": headline, "extra": extra, "lede": lede,
         "margin": margin, "total": ws + ls,
         "home_name": home, "away_name": away,
         "home_score": f"{hs:g}", "away_score": f"{as_:g}",

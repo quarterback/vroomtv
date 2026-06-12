@@ -20,6 +20,25 @@
   </div>
 </div>
 
+{% if duel %}
+<section>
+  <h2 class="sect">{{ a_label }} vs {{ h_label }}</h2>
+  <div class="duel">
+    {% for s in duel %}
+    <div class="duel-row">
+      <span class="duel-label">{{ s.label }}</span>
+      <div class="duel-line">
+        <span class="duel-num">{{ s.a }}</span>
+        <div class="duel-bar"><i style="width:{{ s.a_pct }}%"></i></div>
+        <span class="duel-num">{{ s.b }}</span>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="duel-key"><span class="k-away">▮ {{ a_label }}</span><span class="k-home">▮ {{ h_label }}</span></div>
+  </div>
+</section>
+{% endif %}
+
 {% if lines %}
 <section>
   <h2 class="sect">Lines</h2>

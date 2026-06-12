@@ -89,26 +89,123 @@ def get_extra_scores(limit_per_league: int = 8) -> list[dict]:
     """College / youth / World Cup games — separate competitions that live
     in the same o27v2 DB. Each is optional: tables only exist once that
     mode has been played, so per-league failures are silently skipped.
-    No game-detail pages for these (their box scores use different tables),
-    so items carry no id."""
+    Items now carry id so the Rocky can link to a tier-specific game page."""
     path = _db_path()
     if not path or not os.path.exists(path):
         return []
+    queries = [
+        ("College", "college", """
+            SELECT g.id, hp.name AS home_name, ap.name AS away_name,
+                   g.home_score, g.away_score, g.phase AS note
+            FROM college_games g
+            JOIN college_programs hp ON hp.id = g.home_program_id
+            JOIN college_programs ap ON ap.id = g.away_program_id
+            WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+        ("Youth Cup", "youth", """
+            SELECT g.id, ht.name AS home_name, at.name AS away_name,
+                   g.home_score, g.away_score, g.bracket_round AS note
+            FROM youth_games g
+            JOIN youth_teams ht ON ht.id = g.home_team_id
+            JOIN youth_teams at ON at.id = g.away_team_id
+            WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+        ("World Cup", "wc", """
+            SELECT g.id, ht.name AS home_name, at.name AS away_name,
+                   g.home_score, g.away_score, g.phase AS note
+            FROM wc_games g
+            JOIN wc_teams ht ON ht.id = g.home_wc_team_id
+            JOIN wc_teams at ON at.id = g.away_wc_team_id
+            WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+    ]
     out = []
     try:
         conn = _conn(path)
     except Exception:
         return []
-    for league, sql in _EXTRA_QUERIES:
+    for league, tier, sql in queries:
         try:
             for r in conn.execute(sql, (limit_per_league,)).fetchall():
-                d = dict(r)
-                d["league"] = league
+                d = dict(r); d["league"] = league; d["tier"] = tier
                 out.append(d)
         except Exception:
             continue
     conn.close()
     return out
+
+
+_TIER_TABLES = {
+    "college": {"games": "college_games", "batters": "college_batter_stats",
+                "pitchers": "college_pitcher_stats", "teams": "college_programs",
+                "team_pk": "id", "home_fk": "home_program_id", "away_fk": "away_program_id",
+                "team_side": "program_id"},
+    "wc": {"games": "wc_games", "batters": "game_wc_batter_stats",
+           "pitchers": "game_wc_pitcher_stats", "teams": "wc_teams",
+           "team_pk": "id", "home_fk": "home_wc_team_id", "away_fk": "away_wc_team_id",
+           "team_side": "wc_team_id"},
+    "youth": {"games": "youth_games", "batters": "game_youth_batter_stats",
+              "pitchers": "game_youth_pitcher_stats", "teams": "youth_teams",
+              "team_pk": "id", "home_fk": "home_team_id", "away_fk": "away_team_id",
+              "team_side": "team_id"},
+}
+
+
+def get_extra_game_detail(tier: str, game_id: int) -> dict[str, Any] | None:
+    """Box score for a college / youth-cup / World Cup game. Returns the
+    same shape as get_game_detail so the template can be shared."""
+    if tier not in _TIER_TABLES:
+        return None
+    cfg = _TIER_TABLES[tier]
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        conn = _conn(path)
+        game = conn.execute(f"""
+            SELECT g.*, ht.name AS home_name, at.name AS away_name,
+                   ht.id AS home_team_id, at.id AS away_team_id
+            FROM {cfg['games']} g
+            JOIN {cfg['teams']} ht ON ht.{cfg['team_pk']} = g.{cfg['home_fk']}
+            JOIN {cfg['teams']} at ON at.{cfg['team_pk']} = g.{cfg['away_fk']}
+            WHERE g.id = ?
+        """, (game_id,)).fetchone()
+        if not game:
+            conn.close()
+            return None
+        batters = conn.execute(f"""
+            SELECT b.*, b.{cfg['team_side']} AS team_id,
+                   COALESCE(pl.name, '') AS player_name
+            FROM {cfg['batters']} b
+            LEFT JOIN players pl ON pl.id = b.player_id
+            WHERE b.game_id = ? ORDER BY b.{cfg['team_side']}, b.player_id
+        """, (game_id,)).fetchall()
+        pitchers = conn.execute(f"""
+            SELECT p.*, p.{cfg['team_side']} AS team_id,
+                   COALESCE(pl.name, '') AS player_name
+            FROM {cfg['pitchers']} p
+            LEFT JOIN players pl ON pl.id = p.player_id
+            WHERE p.game_id = ? ORDER BY p.{cfg['team_side']}, p.player_id
+        """, (game_id,)).fetchall()
+        conn.close()
+        # Normalize column names across tiers so the template doesn't care.
+        def _norm_b(r):
+            d = dict(r)
+            d.setdefault("runs", d.get("r", 0))
+            d.setdefault("hits", d.get("h", 0))
+            return d
+        def _norm_p(r):
+            d = dict(r)
+            d.setdefault("hits_allowed", d.get("h", 0))
+            d.setdefault("runs_allowed", d.get("r", 0))
+            d.setdefault("er", d.get("er", 0))
+            d.setdefault("hr_allowed", d.get("hr", 0))
+            d.setdefault("outs_recorded", d.get("outs", 0))
+            d.setdefault("batters_faced", d.get("bf", 0))
+            return d
+        return {"game": dict(game),
+                "batters": [_norm_b(b) for b in batters],
+                "pitchers": [_norm_p(p) for p in pitchers],
+                "pbp": "", "tier": tier}
+    except Exception:
+        return None
 
 
 def get_standings() -> list[dict]:

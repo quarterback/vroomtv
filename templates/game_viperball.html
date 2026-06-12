@@ -41,6 +41,21 @@
   </section>
   {% endif %}
 
+  {% if worm %}
+  <section>
+    <h2 class="sect">Score worm</h2>
+    <div class="worm">
+      <div class="worm-edge">{{ home_name }} ahead</div>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line x1="0" y1="50" x2="100" y2="50" stroke="#e6e5e2" stroke-width="0.3"/>
+        <polyline points="{{ worm.path }}" fill="none" stroke="#cf2b2b" stroke-width="0.8"/>
+      </svg>
+      <div class="worm-edge">{{ away_name }} ahead</div>
+    </div>
+    <div class="meta">Lead margin over the course of the game. Peak swing: {{ '%g' | format(worm.peak) }} points.</div>
+  </section>
+  {% endif %}
+
   {% if drive_chart %}
   <section>
     <h2 class="sect">Drives</h2>

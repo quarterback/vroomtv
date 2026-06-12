@@ -109,7 +109,7 @@ def _ticker(per_sport: int = 8) -> list[dict]:
             "away": g["away_name"][:3].upper(), "home": g["home_name"][:3].upper(),
             "away_score": g["away_score"], "home_score": g["home_score"],
             "note": (g.get("note") or "Final").title(),
-            "url": None,
+            "url": f"/game/baseball/{g['tier']}/{g['id']}",
         })
     for g in viperball.get_recent_scores(limit_per_league=per_sport):
         items.append({
@@ -176,7 +176,21 @@ def index():
 
 @app.route("/news")
 def news():
-    return render_template("news.html", articles=baseball.get_news(limit=50))
+    """News desk: real gazette articles when available, plus a wire
+    section of mechanical game recaps for sports the gazette doesn't
+    cover yet (viperball, tennis)."""
+    baseball_scores = baseball.get_recent_scores()
+    viperball_scores = viperball.get_recent_scores()
+    tennis_scores = tennis.get_recent_scores()
+    wire = newsroom.build_wire(baseball_scores, viperball_scores,
+                               tennis_scores, briefs=30)
+    by_sport = {"Baseball": [], "Viperball": [], "Tennis": []}
+    items = ([wire["lead"]] if wire.get("lead") else []) + wire.get("briefs", [])
+    for it in items:
+        by_sport.setdefault(it["sport"], []).append(it)
+    return render_template("news.html",
+                           articles=baseball.get_news(limit=50),
+                           wire_by_sport=by_sport)
 
 
 @app.route("/news/<slate_date>/<voice_id>")
@@ -299,6 +313,28 @@ def _duel(stats_a: dict, stats_b: dict, pairs: list) -> list[dict]:
     return out
 
 
+@app.route("/game/baseball/<tier>/<int:game_id>")
+def game_baseball_tier(tier: str, game_id: int):
+    if tier not in ("college", "youth", "wc"):
+        abort(404)
+    detail = baseball.get_extra_game_detail(tier, game_id)
+    if not detail:
+        abort(404)
+    game = detail["game"]
+
+    def _tot(team_id):
+        side = [b for b in detail["batters"] if b["team_id"] == team_id]
+        return {k: sum(b.get(col, 0) for b in side) for k, col in
+                (("runs", "runs"), ("hits", "hits"), ("hr", "hr"),
+                 ("bb", "bb"), ("k", "k"))}
+    detail["duel"] = _duel(
+        _tot(game["away_team_id"]), _tot(game["home_team_id"]),
+        [("Runs", "runs"), ("Hits", "hits"), ("Home runs", "hr"),
+         ("Walks", "bb"), ("Strikeouts", "k")])
+    detail["ladder"] = []
+    return render_template("game_baseball.html", **detail)
+
+
 @app.route("/game/baseball/<int:game_id>")
 def game_baseball(game_id: int):
     detail = baseball.get_game_detail(game_id)
@@ -366,6 +402,35 @@ def game_viperball(save_key: str, week: int, matchup_key: str):
         })
         x += w
     detail["drive_chart"] = chart
+    # Score worm: relative lead curve from per-drive running scores.
+    # Falls back to derived-from-results if the sim hasn't been updated
+    # to stamp the score on each drive yet.
+    worm = [{"x": 0, "lead": 0, "label": "Kickoff"}]
+    running_h = running_a = 0
+    for i, d in enumerate(drives, 1):
+        h, a = d.get("home_score_after"), d.get("away_score_after")
+        if h is None or a is None:
+            # Fallback: infer points from the drive result.
+            if "touchdown" in str(d.get("result", "")):
+                points = 6
+            elif d.get("result") == "successful_kick":
+                points = 3
+            else:
+                points = 0
+            if d.get("team") == "home":
+                running_h += points
+            else:
+                running_a += points
+            h, a = running_h, running_a
+        worm.append({"x": round(i * 100 / max(len(drives), 1), 2),
+                     "lead": float(h) - float(a),
+                     "label": f"Q{d.get('quarter', '?')}  {a:g}–{h:g}"})
+    if any(p["lead"] for p in worm):
+        peak = max(abs(p["lead"]) for p in worm) or 1
+        for p in worm:
+            p["y"] = round(50 - 35 * p["lead"] / peak, 2)
+        detail["worm"] = {"points": worm, "peak": peak,
+                          "path": " ".join(f"{p['x']},{p['y']}" for p in worm)}
     detail["ladder"] = next(
         (lg["teams"] for lg in viperball.get_standings()
          if lg["save_key"] == save_key), [])
@@ -384,4 +449,23 @@ def game_tennis(source: str, dual_id: int):
     detail["ladder"] = next(
         (lg["teams"] for lg in tennis.get_standings()
          if lg["league"] == label), [])[:25]
+    # Lines-won / sets-won / games-won — aggregate from each dual line so
+    # we can show ABC-style head-to-head bars for the match.
+    lines = detail.get("lines") or []
+    h_lines = a_lines = h_sets = a_sets = h_games = a_games = 0
+    for line in lines:
+        if not line.get("completed"):
+            continue
+        won = bool(line.get("home_won"))
+        h_lines += int(won); a_lines += int(not won)
+        for s in line.get("sets") or []:
+            try:
+                hg, ag = int(s[0]), int(s[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            h_games += hg; a_games += ag
+            h_sets += int(hg > ag); a_sets += int(ag > hg)
+    detail["duel"] = _duel({"l": h_lines, "s": h_sets, "g": h_games},
+                           {"l": a_lines, "s": a_sets, "g": a_games},
+                           [("Lines won", "l"), ("Sets won", "s"), ("Games won", "g")])
     return render_template("game_tennis.html", **detail)

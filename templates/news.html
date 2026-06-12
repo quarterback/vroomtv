@@ -2,12 +2,7 @@
 {% block title %}News — Rocky Mountain News{% endblock %}
 {% block content %}
 <h1 class="page-title">News</h1>
-{% if not articles %}
-<div class="empty-note">
-  No stories filed yet. Baseball articles generate from the O27 Gazette and
-  appear here automatically; other leagues to follow.
-</div>
-{% else %}
+{% if articles %}
 <div class="story-list">
   {% for a in articles %}
   <article class="story-item">
@@ -17,6 +12,29 @@
     <div class="byline">{{ a.voice_id | replace('_', ' ') | title }} &middot; {{ a.slate_date }}</div>
   </article>
   {% endfor %}
+</div>
+{% endif %}
+
+{% if wire_by_sport %}
+{% for sport, items in wire_by_sport.items() if items %}
+<h2 class="sect">{{ sport }} wire</h2>
+<div class="story-grid">
+  {% for it in items[:9] %}
+  <a class="story-card" href="{{ it.url }}">
+    <img src="/art/{{ it.sport | lower }}/{{ it.art_seed }}.svg" alt="">
+    <span class="kicker">{{ it.sport }} &middot; {{ it.league }}{% if it.extra %} &middot; {{ it.extra }}{% endif %}</span>
+    <h3>{{ it.headline }}</h3>
+    {% if it.lede %}<p class="meta">{{ it.lede }}</p>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if not articles and not wire_by_sport %}
+<div class="empty-note">
+  No stories filed yet. Articles generate from the O27 Gazette and appear
+  here automatically; wire recaps fill in once games are simulated.
 </div>
 {% endif %}
 {% endblock %}

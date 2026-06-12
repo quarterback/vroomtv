@@ -77,7 +77,7 @@
         <h3 class="subsect">{{ league }}</h3>
         <div class="card-grid">
           {% for g in games %}
-          {{ scorecard(None, g.away_name, g.home_name, g.away_score, g.home_score, (g.note or 'Final') | title) }}
+          {{ scorecard('/game/baseball/' ~ g.tier ~ '/' ~ g.id, g.away_name, g.home_name, g.away_score, g.home_score, (g.note or 'Final') | title) }}
           {% endfor %}
         </div>
         {% endfor %}
