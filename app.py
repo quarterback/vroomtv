@@ -45,6 +45,30 @@ def upload_db(sport: str):
     return jsonify({sport: f"ok ({size:,} bytes)"})
 
 
+@app.route("/download/<sport>")
+def download_db(sport: str):
+    """Serve the hub's copy of a sim DB back out — the restore half of
+    /upload/<sport>, e.g. to seed a sim's fresh volume from a machine
+    console:
+
+        curl -H "Authorization: Bearer $TOKEN" \\
+             https://<hub>/download/viperball -o /data/viperball.db
+    """
+    from flask import send_file
+    src_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
+               "tennis": "TENNIS_DB"}.get(sport)
+    token = os.environ.get("SYNC_TOKEN")
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
+        or request.args.get("token", "")
+    if not src_env or not token or supplied != token:
+        abort(404)
+    src = os.environ.get(src_env)
+    if not src or not os.path.exists(src):
+        abort(404)
+    return send_file(src, mimetype="application/x-sqlite3",
+                     as_attachment=True, download_name=os.path.basename(src))
+
+
 @app.route("/sync", methods=["GET", "POST"])
 def sync_now():
     """Manual pull of all feeds. Browser-friendly: /sync?token=<SYNC_TOKEN>."""
