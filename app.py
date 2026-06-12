@@ -218,6 +218,26 @@ def standings():
         catalog.append({"sport": "Tennis", "leagues": [
             {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
              "teams": lg["teams"]} for lg in tn]})
+    portal = tennis.get_portal_universes()
+    if portal:
+        # Portal rankings replace the basic W-L for NCAA divisions with the
+        # season's power index / record / APR / FQI shape the data portal serves.
+        sport = next((c for c in catalog if c["sport"] == "Tennis"), None)
+        if sport is None:
+            sport = {"sport": "Tennis", "leagues": []}
+            catalog.append(sport)
+        portal_labels = set()
+        for u in portal:
+            sport["leagues"].insert(0, {
+                "label": u["label"], "kind": "tennis_portal", "tier": "College",
+                "rankings": u.get("live_rankings", []),
+                "standings_leaders": u.get("standings_leaders", []),
+                "has_live_results": u.get("has_live_results", False),
+            })
+            portal_labels.add(u["label"])
+        # Drop now-redundant basic NCAA leagues.
+        sport["leagues"] = [l for l in sport["leagues"]
+                            if not (l["kind"] == "tennis" and l["label"] in portal_labels)]
     for c in catalog:
         c["leagues"].sort(key=lambda l: l["tier"] != "Pro")  # Pro first
     entry, sel = _pick(catalog)
@@ -242,6 +262,22 @@ def leaders():
         catalog.append({"sport": "Tennis", "leagues": [
             {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
              "leaders": lg["leaders"]} for lg in tn]})
+    portal = tennis.get_portal_universes()
+    if portal:
+        sport = next((c for c in catalog if c["sport"] == "Tennis"), None)
+        if sport is None:
+            sport = {"sport": "Tennis", "leagues": []}
+            catalog.append(sport)
+        portal_labels = set()
+        for u in portal:
+            sport["leagues"].insert(0, {
+                "label": u["label"], "kind": "tennis_portal", "tier": "College",
+                "player_leaders": u.get("player_leaders", []),
+                "top_prospects": u.get("top_prospects", []),
+            })
+            portal_labels.add(u["label"])
+        sport["leagues"] = [l for l in sport["leagues"]
+                            if not (l["kind"] == "tennis" and l["label"] in portal_labels)]
     for c in catalog:
         c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
     entry, sel = _pick(catalog)

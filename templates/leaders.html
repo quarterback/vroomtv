@@ -84,6 +84,38 @@
   </table>
 </section>
 
+{% elif sel.kind == 'tennis_portal' %}
+<section>
+  <h2 class="sect">{{ sel.label }} &middot; Player Power (STR)</h2>
+  <table class="data-table full">
+    <thead><tr><th>Player</th><th>School</th><th>Class</th><th class="n">W</th><th class="n">L</th><th class="n">STR</th><th class="n">Rel</th></tr></thead>
+    <tbody>
+    {% for p in sel.player_leaders %}
+    <tr><td class="t">{{ p.name }}</td><td>{{ p.school }}</td><td>{{ p.class }}</td>
+        <td class="n">{{ p.w }}</td><td class="n">{{ p.l }}</td>
+        <td class="n"><b>{{ '%.1f' | format(p.str or 0) }}</b></td>
+        <td class="n">{{ '%.2f' | format(p.rel or 0) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% if sel.top_prospects %}
+<section>
+  <h2 class="sect">{{ sel.label }} &middot; Top Junior Prospects ({{ sel.top_prospects[0].grad_year if sel.top_prospects else '' }})</h2>
+  <table class="data-table full">
+    <thead><tr><th>Rk</th><th>Player</th><th>Country</th><th class="n">Stars</th><th class="n">Pts</th><th class="n">STR</th></tr></thead>
+    <tbody>
+    {% for p in sel.top_prospects %}
+    <tr><td class="n">{{ p.rk }}</td><td class="t">{{ p.name }}</td><td>{{ p.country }}</td>
+        <td class="n">{{ '★' * (p.stars or 0) }}</td>
+        <td class="n">{{ p.points }}</td>
+        <td class="n"><b>{{ '%.1f' | format(p.str or 0) }}</b></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
 {% elif sel.kind == 'tennis' %}
 <section>
   <h2 class="sect">{{ sel.label }} &middot; Singles Wins (min. 3)</h2>

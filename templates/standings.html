@@ -62,6 +62,39 @@
   {% endif %}
 </section>
 
+{% elif sel.kind == 'tennis_portal' %}
+<section>
+  <h2 class="sect">{{ sel.label }} &middot; Power Index {% if not sel.has_live_results %}<span class="meta">(preseason)</span>{% endif %}</h2>
+  <table class="data-table full">
+    <thead><tr><th>Rk</th><th>School</th><th>Conf</th><th class="n">Rec</th><th class="n">PI</th><th class="n">APR</th><th class="n">FQI</th><th class="n">Move</th></tr></thead>
+    <tbody>
+    {% for r in sel.rankings %}
+    <tr><td class="n"><b>{{ r.rk }}</b></td>
+        <td class="t">{{ r.school }}</td>
+        <td>{{ r.conf }}</td>
+        <td class="n">{{ r.rec }}</td>
+        <td class="n"><b>{{ '%.1f' | format(r.pi or 0) }}</b></td>
+        <td class="n">{{ '%.1f' | format(r.apr or 0) }}</td>
+        <td class="n">{{ '%.1f' | format(r.fqi or 0) }}</td>
+        <td class="n">{% if r.move > 0 %}<span style="color:#0a7a3b">▲ {{ r.move }}</span>{% elif r.move < 0 %}<span style="color:#cf2b2b">▼ {{ -r.move }}</span>{% else %}&mdash;{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% if sel.standings_leaders %}
+<section>
+  <h2 class="sect">{{ sel.label }} &middot; Conference leaders</h2>
+  <table class="data-table full">
+    <thead><tr><th>Conference</th><th>Leader</th><th class="n">W</th><th class="n">L</th></tr></thead>
+    <tbody>
+    {% for r in sel.standings_leaders %}
+    <tr><td>{{ r.conf }}</td><td class="t">{{ r.school }}</td><td class="n">{{ r.w }}</td><td class="n">{{ r.l }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
 {% elif sel.kind == 'tennis' %}
 <section>
   <h2 class="sect">{{ sel.label }}</h2>

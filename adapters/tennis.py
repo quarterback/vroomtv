@@ -120,6 +120,27 @@ def get_standings() -> list[dict]:
 _leaders_cache: dict = {"key": None, "leagues": []}
 
 
+def _portal_data() -> dict | None:
+    """The tennis stats portal's JSON export (live rankings via the
+    season's power index, player STR ratings, junior prospects). Returns
+    None when not synced — the basic DB adapter still works."""
+    path = _db_path()
+    if not path:
+        return None
+    fp = os.path.join(os.path.dirname(path) or ".", "tennis_portal.json")
+    try:
+        with open(fp) as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def get_portal_universes() -> list[dict]:
+    """Public passthrough so the app can render the rich portal view."""
+    blob = _portal_data()
+    return blob.get("universes", []) if blob else []
+
+
 def get_stat_leaders(limit: int = 10, min_matches: int = 3) -> list[dict]:
     """Singles match-win leaders per league, aggregated from dual line
     scores: [{"league": label, "leaders": [...]}].

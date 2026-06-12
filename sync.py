@@ -42,6 +42,8 @@ PORTALS = [
      "baseball_leaders.json"),
     ("viperball_sessions", "VIPERBALL_PORTAL_URL", "/export/sessions.json",
      "viperball_sessions.json"),
+    ("tennis_portal", "TENNIS_PORTAL_URL", "/export/data_portal.json",
+     "tennis_portal.json"),
 ]
 
 _last: dict = {"at": None, "results": {}}
