@@ -229,23 +229,34 @@ of the sync.
 
 ## What was NOT done (phase 2)
 
-- **Game-detail pages for baseball college / youth / World Cup.** Score
-  cards link nowhere; their box scores live in different tables that
-  haven't been wired up.
-- **Tennis match-page infographics.** Tennis got the ladder treatment
-  but no equivalent of the duel bars / drive chart — the sim's `lines_json`
-  doesn't carry the per-point data that would make those interesting.
-- **Score-worm charts.** A running score per drive would let the Rocky
-  draw a "win probability" line graph. Needs five new lines in viperball
-  to stamp the score onto each drive summary.
 - **Stat-portal data for live game pages.** The portal pulls inform the
   *aggregate* leaders and standings; individual match pages still read
   the raw DB. Worth doing if there's a per-game advanced stat (e.g.
   viperball's adjusted efficiency for a single contest) you want to
-  display.
-- **News stories for non-baseball sports.** Still only the baseball
-  gazette produces real articles; viperball and tennis use the wire
-  placeholder headlines (now with sport-shaped pixel art at least).
+  display. (Backlog.)
+
+## Closed in phase 3
+
+- **Game-detail pages for baseball college / youth / World Cup.** Score
+  cards on the front page and ticker now link to
+  `/game/baseball/<tier>/<id>` (`college` / `youth` / `wc`). The adapter
+  reads the appropriate per-game stat tables (`college_batter_stats`,
+  `game_wc_pitcher_stats`, etc.) and normalizes their column names to
+  the pro layout so the box-score template is reused unchanged.
+- **Tennis match-page infographics.** Match pages now show duel bars
+  for lines won / sets won / games won, aggregated from each line's set
+  scores (no extra data needed from the sim — already in `lines_json`).
+- **Score-worm chart.** Viperball got a five-line change to stamp
+  `home_score_after` / `away_score_after` onto each drive summary; the
+  hub draws a relative-lead curve as inline SVG over a midline.
+  Falls back to inferring points from drive results when the sim
+  hasn't been redeployed yet, so it works against old box scores.
+- **News for non-baseball sports.** The wire generator now writes
+  one-sentence ledes alongside the headlines (margin-scaled drama
+  beats: "slim margins", "comfortable cushion", "runaway", plus
+  playoff/week tag prefixes). The /news page renders a per-sport wire
+  section under any real gazette articles, with sport-shaped pixel art
+  thumbnails.
 
 ## Validation (phase 2)
 
