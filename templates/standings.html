@@ -16,7 +16,7 @@
   <div class="table-grid">
     {% for league, lteams in sel.rows | groupby('league') %}
     {% for division, teams in lteams | groupby('division') %}
-    <table class="data-table">
+    <div class="table-scroll"><table class="data-table">
       <thead><tr><th>{{ division }}</th><th class="n">W</th><th class="n">L</th><th class="n">Pct</th></tr></thead>
       <tbody>
       {% for t in teams | sort(attribute='wins', reverse=true) %}
@@ -24,7 +24,7 @@
           <td class="n">{{ '%.3f' | format(t.wins / (t.wins + t.losses) if (t.wins + t.losses) else 0) }}</td></tr>
       {% endfor %}
       </tbody>
-    </table>
+    </table></div>
     {% endfor %}
     {% endfor %}
   </div>
@@ -35,7 +35,7 @@
 <section>
   <h2 class="sect">{{ sel.label }}{% if kp %} &middot; KenPom{% endif %}</h2>
   {% if kp %}
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">AdjO</th><th class="n">AdjD</th><th class="n">EM</th><th class="n">Tempo</th><th class="n">Luck</th></tr></thead>
     <tbody>
     {% for t in sel.teams | sort(attribute='em', reverse=true) %}
@@ -48,9 +48,9 @@
         <td class="n">{{ '%+.3f' | format(t.luck or 0) }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% else %}
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">T</th><th class="n">Strk</th></tr></thead>
     <tbody>
     {% for t in sel.teams %}
@@ -58,14 +58,14 @@
         <td class="n">{% if t.streak %}{{ t.streak_type }}{{ t.streak }}{% else %}&mdash;{% endif %}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% endif %}
 </section>
 
 {% elif sel.kind == 'tennis_portal' %}
 <section>
   <h2 class="sect">{{ sel.label }} &middot; Power Index {% if not sel.has_live_results %}<span class="meta">(preseason)</span>{% endif %}</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Rk</th><th>School</th><th>Conf</th><th class="n">Rec</th><th class="n">PI</th><th class="n">APR</th><th class="n">FQI</th><th class="n">Move</th></tr></thead>
     <tbody>
     {% for r in sel.rankings %}
@@ -79,33 +79,33 @@
         <td class="n">{% if r.move > 0 %}<span style="color:#0a7a3b">▲ {{ r.move }}</span>{% elif r.move < 0 %}<span style="color:#cf2b2b">▼ {{ -r.move }}</span>{% else %}&mdash;{% endif %}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% if sel.standings_leaders %}
 <section>
   <h2 class="sect">{{ sel.label }} &middot; Conference leaders</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Conference</th><th>Leader</th><th class="n">W</th><th class="n">L</th></tr></thead>
     <tbody>
     {% for r in sel.standings_leaders %}
     <tr><td>{{ r.conf }}</td><td class="t">{{ r.school }}</td><td class="n">{{ r.w }}</td><td class="n">{{ r.l }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endif %}
 
 {% elif sel.kind == 'tennis' %}
 <section>
   <h2 class="sect">{{ sel.label }}</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>School</th><th class="n">W</th><th class="n">L</th></tr></thead>
     <tbody>
     {% for t in sel.teams %}
     <tr><td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endif %}
 {% endblock %}

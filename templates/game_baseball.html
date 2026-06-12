@@ -20,14 +20,14 @@
 {% if side_batters %}
 <section>
   <h2 class="sect">{{ label }} batting</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Player</th><th class="n">AB</th><th class="n">R</th><th class="n">H</th><th class="n">2B</th><th class="n">3B</th><th class="n">HR</th><th class="n">RBI</th><th class="n">BB</th><th class="n">K</th></tr></thead>
     <tbody>
     {% for b in side_batters %}
     <tr><td class="t">{{ b.player_name }}</td><td class="n">{{ b.ab }}</td><td class="n">{{ b.runs }}</td><td class="n">{{ b.hits }}</td><td class="n">{{ b.doubles }}</td><td class="n">{{ b.triples }}</td><td class="n">{{ b.hr }}</td><td class="n">{{ b.rbi }}</td><td class="n">{{ b.bb }}</td><td class="n">{{ b.k }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endif %}
 {% endfor %}
@@ -37,14 +37,14 @@
 {% if side_pitchers %}
 <section>
   <h2 class="sect">{{ label }} pitching</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Player</th><th class="n">BF</th><th class="n">Outs</th><th class="n">H</th><th class="n">R</th><th class="n">ER</th><th class="n">BB</th><th class="n">K</th><th class="n">HR</th></tr></thead>
     <tbody>
     {% for p in side_pitchers %}
     <tr><td class="t">{{ p.player_name }}</td><td class="n">{{ p.batters_faced }}</td><td class="n">{{ p.outs_recorded }}</td><td class="n">{{ p.hits_allowed }}</td><td class="n">{{ p.runs_allowed }}</td><td class="n">{{ p.er }}</td><td class="n">{{ p.bb }}</td><td class="n">{{ p.k }}</td><td class="n">{{ p.hr_allowed }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endif %}
 {% endfor %}
@@ -80,7 +80,7 @@
   <h2 class="sect">Standings</h2>
   <div class="table-grid">
     {% for division, teams in ladder | groupby('division') %}
-    <table class="data-table">
+    <div class="table-scroll"><table class="data-table">
       <thead><tr><th>{{ division }}</th><th class="n">W</th><th class="n">L</th></tr></thead>
       <tbody>
       {% for t in teams | sort(attribute='wins', reverse=true) %}
@@ -88,7 +88,7 @@
           <td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
       {% endfor %}
       </tbody>
-    </table>
+    </table></div>
     {% endfor %}
   </div>
 </section>

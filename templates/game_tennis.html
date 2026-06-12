@@ -42,7 +42,7 @@
 {% if lines %}
 <section>
   <h2 class="sect">Lines</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Line</th><th>Home</th><th>Away</th><th class="n">Score</th></tr></thead>
     <tbody>
     {% for line in lines %}
@@ -60,7 +60,7 @@
     </tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   <div class="meta mt-sm">Winners in bold. Score reads from the winning side.</div>
 </section>
 {% else %}
@@ -70,7 +70,7 @@
 {% if ladder %}
 <section>
   <h2 class="sect">Ladder</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>School</th><th class="n">W</th><th class="n">L</th></tr></thead>
     <tbody>
     {% for t in ladder %}
@@ -78,7 +78,7 @@
         <td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endif %}
 {% endblock %}
