@@ -89,7 +89,7 @@ def get_standings() -> list[dict]:
                     franchises[win_fid]["wins"] += 1
                 if lose_fid in franchises:
                     franchises[lose_fid]["losses"] += 1
-            out.append({"league": lg["name"], "source": "gtt",
+            out.append({"league": lg["name"], "source": "gtt", "tier": "Pro",
                         "teams": sorted(franchises.values(), key=lambda t: (-t["wins"], t["losses"]))})
         for s in conn.execute("SELECT id, division, gender FROM seasons ORDER BY id").fetchall():
             label = f"{s['division'].upper()} {s['gender'].title()}"
@@ -109,7 +109,7 @@ def get_standings() -> list[dict]:
                     agg[sch] = {"name": sch, "wins": 0, "losses": 0}
                 agg[sch]["wins"] += r["wins"]
                 agg[sch]["losses"] += r["losses"]
-            out.append({"league": label, "source": "ncaa",
+            out.append({"league": label, "source": "ncaa", "tier": "College",
                         "teams": sorted(agg.values(), key=lambda t: (-t["wins"], t["losses"]))})
         conn.close()
     except Exception:
@@ -201,10 +201,12 @@ def get_stat_leaders(limit: int = 10, min_matches: int = 3) -> list[dict]:
             continue
         r["win_pct"] = r["wins"] / r["matches"]
         by_league.setdefault(r["league"], []).append(r)
+    gtt_names = {info[2] for info in pid_info.values()} if pid_info else set()
     leagues = []
     for label, rows in by_league.items():
         rows.sort(key=lambda r: (-r["wins"], -r["win_pct"]))
-        leagues.append({"league": label, "leaders": rows[:limit]})
+        leagues.append({"league": label, "leaders": rows[:limit],
+                        "tier": "Pro" if label in gtt_names else "College"})
     _leaders_cache["key"] = cache_key
     _leaders_cache["leagues"] = leagues
     return leagues

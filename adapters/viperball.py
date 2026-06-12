@@ -186,9 +186,11 @@ def get_standings() -> list[dict]:
                         "streak_type": ts.get("streak_type", ""),
                     })
             teams.sort(key=lambda t: (-t["wins"], t["losses"]))
-            out.append({"league": lg["label"], "save_key": lg["save_key"], "teams": teams})
+            out.append({"league": lg["label"], "save_key": lg["save_key"],
+                        "tier": "Pro", "teams": teams})
         for lg in _college_leagues(path):
-            out.append({"league": lg["label"], "save_key": lg["save_key"], "teams": lg["teams"]})
+            out.append({"league": lg["label"], "save_key": lg["save_key"],
+                        "tier": "College", "teams": lg["teams"]})
     except Exception:
         pass
     return out
@@ -219,9 +221,11 @@ def get_stat_leaders(limit: int = 10) -> list[dict]:
                         "total_yards": ps.get("total_yards", 0),
                     })
             all_players.sort(key=lambda p: -p["rushing_yards"])
-            out.append({"league": lg["label"], "save_key": lg["save_key"], "leaders": all_players[:limit]})
+            out.append({"league": lg["label"], "save_key": lg["save_key"],
+                        "tier": "Pro", "leaders": all_players[:limit]})
         for lg in _college_leagues(path):
-            out.append({"league": lg["label"], "save_key": lg["save_key"], "leaders": lg["leaders"][:limit]})
+            out.append({"league": lg["label"], "save_key": lg["save_key"],
+                        "tier": "College", "leaders": lg["leaders"][:limit]})
     except Exception:
         pass
     return out
@@ -249,12 +253,25 @@ def get_game_detail(save_key: str, week: int, matchup_key: str) -> dict[str, Any
             fr = json.loads(box["data"])
             fs = fr.get("final_score", {})
             home, away = fs.get("home", {}), fs.get("away", {})
+            mods = fr.get("modifier_stack", {}).get("home_defense", {})
+            ref = fr.get("referee") or {}
             return {
                 "league": "College Viperball",
                 "save_key": save_key, "week": week, "matchup_key": matchup_key,
                 "home_name": home.get("team", ""), "away_name": away.get("team", ""),
                 "home_score": _num(home.get("score", 0)),
                 "away_score": _num(away.get("score", 0)),
+                "weather": " · ".join(
+                    str(v).title() for v in
+                    (mods.get("game_temperature"), mods.get("weather")) if v),
+                "referee": {"name": ref.get("name", ""),
+                            "overturned": ref.get("overturned_calls", 0),
+                            "blown": ref.get("blown_calls", 0)},
+                "styles": {
+                    "home": " / ".join(s for s in (fr.get("home_style"), fr.get("home_defense_style")) if s),
+                    "away": " / ".join(s for s in (fr.get("away_style"), fr.get("away_defense_style")) if s),
+                },
+                "rivalry": bool(fr.get("is_rivalry_game")),
                 "result": {"stats": fr.get("stats", {}),
                            "player_stats": fr.get("player_stats", {}),
                            "drive_summary": fr.get("drive_summary", [])},

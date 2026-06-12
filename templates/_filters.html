@@ -6,8 +6,15 @@
     {% endfor %}
   </select>
   <select name="league" aria-label="League" onchange="this.form.submit()">
-    {% if entry %}{% for l in entry.leagues %}
-    <option value="{{ l.label }}"{% if sel and l.label == sel.label %} selected{% endif %}>{{ l.label }}</option>
+    {% if entry %}{% for tier in ['Pro', 'College', 'International'] %}
+    {% set leagues = entry.leagues | selectattr('tier', 'equalto', tier) | list %}
+    {% if leagues %}
+    <optgroup label="{{ tier }} {{ entry.sport }}">
+      {% for l in leagues %}
+      <option value="{{ l.label }}"{% if sel and l.label == sel.label %} selected{% endif %}>{{ l.label }}</option>
+      {% endfor %}
+    </optgroup>
+    {% endif %}
     {% endfor %}{% endif %}
   </select>
   <noscript><button type="submit">Go</button></noscript>

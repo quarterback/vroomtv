@@ -147,8 +147,9 @@ def inject_globals():
 
 
 @app.route("/art/<int:seed>.svg")
-def art(seed: int):
-    resp = Response(newsroom.pixel_art_svg(seed), mimetype="image/svg+xml")
+@app.route("/art/<sport>/<int:seed>.svg")
+def art(seed: int, sport: str = ""):
+    resp = Response(newsroom.pixel_art_svg(seed, sport), mimetype="image/svg+xml")
     resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
 
@@ -206,17 +207,19 @@ def standings():
     bb = baseball.get_standings()
     if bb:
         catalog.append({"sport": "Baseball", "leagues": [
-            {"label": "O27 League", "kind": "baseball", "rows": bb}]})
+            {"label": "O27 League", "kind": "baseball", "tier": "Pro", "rows": bb}]})
     vb = viperball.get_standings()
     if vb:
         catalog.append({"sport": "Viperball", "leagues": [
-            {"label": lg["league"], "kind": "viperball", "teams": lg["teams"]}
-            for lg in vb]})
+            {"label": lg["league"], "kind": "viperball", "tier": lg["tier"],
+             "teams": lg["teams"]} for lg in vb]})
     tn = tennis.get_standings()
     if tn:
         catalog.append({"sport": "Tennis", "leagues": [
-            {"label": lg["league"], "kind": "tennis", "teams": lg["teams"]}
-            for lg in tn]})
+            {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
+             "teams": lg["teams"]} for lg in tn]})
+    for c in catalog:
+        c["leagues"].sort(key=lambda l: l["tier"] != "Pro")  # Pro first
     entry, sel = _pick(catalog)
     return render_template("standings.html", catalog=catalog, entry=entry, sel=sel)
 
@@ -227,18 +230,20 @@ def leaders():
     batting, pitching = baseball.get_batting_leaders(), baseball.get_pitching_leaders()
     if batting or pitching:
         catalog.append({"sport": "Baseball", "leagues": [
-            {"label": "O27 League", "kind": "baseball",
+            {"label": "O27 League", "kind": "baseball", "tier": "Pro",
              "batting": batting, "pitching": pitching}]})
     vb = viperball.get_stat_leaders()
     if vb:
         catalog.append({"sport": "Viperball", "leagues": [
-            {"label": lg["league"], "kind": "viperball", "leaders": lg["leaders"]}
-            for lg in vb]})
+            {"label": lg["league"], "kind": "viperball", "tier": lg["tier"],
+             "leaders": lg["leaders"]} for lg in vb]})
     tn = tennis.get_stat_leaders()
     if tn:
         catalog.append({"sport": "Tennis", "leagues": [
-            {"label": lg["league"], "kind": "tennis", "leaders": lg["leaders"]}
-            for lg in tn]})
+            {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
+             "leaders": lg["leaders"]} for lg in tn]})
+    for c in catalog:
+        c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
     entry, sel = _pick(catalog)
     return render_template("leaders.html", catalog=catalog, entry=entry, sel=sel)
 
@@ -307,13 +312,21 @@ def game_viperball(save_key: str, week: int, matchup_key: str):
     x, chart = 0.0, []
     for d in drives:
         w = 100 * max(d.get("yards", 0), 3) / total
+        notes = []
+        if d.get("bonus_drive"):
+            notes.append("bonus drive")
+        for t in d.get("timeouts") or []:
+            notes.append(f"timeout ({t.get('team_name', t.get('team', ''))}, "
+                         f"{str(t.get('category', '')).replace('_', ' ')})")
         chart.append({
             "x": round(x, 2), "w": round(max(w - 0.4, 0.3), 2),
             "team": d.get("team", "home"),
             "td": "touchdown" in str(d.get("result", "")),
+            "bonus": bool(d.get("bonus_drive")),
             "title": f"Q{d.get('quarter', '?')} · {d.get('team', '')} · "
                      f"{d.get('plays', 0)} plays, {d.get('yards', 0)} yds — "
-                     f"{str(d.get('result', '')).replace('_', ' ')}",
+                     f"{str(d.get('result', '')).replace('_', ' ')}"
+                     + (" · " + ", ".join(notes) if notes else ""),
         })
         x += w
     detail["drive_chart"] = chart

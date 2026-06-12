@@ -16,7 +16,7 @@
 
     {% if lead_article %}
     <article class="lead-story">
-      <a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}" class="lead-art"><img src="/art/{{ lead_article.art_seed }}.svg" alt=""></a>
+      <a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}" class="lead-art"><img src="/art/baseball/{{ lead_article.art_seed }}.svg" alt=""></a>
       <span class="kicker">Baseball &middot; The Gazette</span>
       <h1><a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}">{{ lead_article.headline }}</a></h1>
       {% if lead_article.lede %}<p class="lede">{{ lead_article.lede }}</p>{% endif %}
@@ -32,7 +32,7 @@
           <span class="gb-side {{ 'won' if lead_wire.home_won else 'lost' }}"><b>{{ lead_wire.home_score }}</b><span class="gb-team">{{ lead_wire.home_name }}</span></span>
         </a>
       </div>
-      <a href="{{ lead_wire.url }}" class="lead-art"><img src="/art/{{ lead_wire.art_seed }}.svg" alt=""></a>
+      <a href="{{ lead_wire.url }}" class="lead-art"><img src="/art/{{ lead_wire.sport | lower }}/{{ lead_wire.art_seed }}.svg" alt=""></a>
       <h1><a href="{{ lead_wire.url }}">{{ lead_wire.headline }}</a></h1>
       <div class="byline">From the wire</div>
     </article>
@@ -45,7 +45,7 @@
     <div class="story-grid">
       {% for b in featured %}
       <a class="story-card" href="{{ b.url }}">
-        <img src="/art/{{ b.art_seed }}.svg" alt="">
+        <img src="/art/{{ b.sport | lower }}/{{ b.art_seed }}.svg" alt="">
         <span class="kicker">{{ b.sport }}{% if b.extra %} &middot; {{ b.extra }}{% endif %}</span>
         <h3>{{ b.headline }}</h3>
       </a>
@@ -135,7 +135,7 @@
         {% for b in rail_briefs %}
         <li>
           <a class="brief" href="{{ b.url }}">
-            <img class="thumb" src="/art/{{ b.art_seed }}.svg" alt="">
+            <img class="thumb" src="/art/{{ b.sport | lower }}/{{ b.art_seed }}.svg" alt="">
             <span class="brief-text">{{ b.headline }}
               <span class="meta">{{ b.sport }}{% if b.extra %} &middot; {{ b.extra }}{% endif %}</span>
             </span>
