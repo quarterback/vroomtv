@@ -45,6 +45,57 @@ def get_recent_scores(limit: int = 15) -> list[dict]:
         return []
 
 
+_EXTRA_QUERIES = [
+    ("College", """
+        SELECT hp.name AS home_name, ap.name AS away_name,
+               g.home_score, g.away_score, g.phase AS note
+        FROM college_games g
+        JOIN college_programs hp ON hp.id = g.home_program_id
+        JOIN college_programs ap ON ap.id = g.away_program_id
+        WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+    ("Youth Cup", """
+        SELECT ht.name AS home_name, at.name AS away_name,
+               g.home_score, g.away_score, g.bracket_round AS note
+        FROM youth_games g
+        JOIN youth_teams ht ON ht.id = g.home_team_id
+        JOIN youth_teams at ON at.id = g.away_team_id
+        WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+    ("World Cup", """
+        SELECT ht.name AS home_name, at.name AS away_name,
+               g.home_score, g.away_score, g.phase AS note
+        FROM wc_games g
+        JOIN wc_teams ht ON ht.id = g.home_wc_team_id
+        JOIN wc_teams at ON at.id = g.away_wc_team_id
+        WHERE g.played = 1 ORDER BY g.id DESC LIMIT ?"""),
+]
+
+
+def get_extra_scores(limit_per_league: int = 8) -> list[dict]:
+    """College / youth / World Cup games — separate competitions that live
+    in the same o27v2 DB. Each is optional: tables only exist once that
+    mode has been played, so per-league failures are silently skipped.
+    No game-detail pages for these (their box scores use different tables),
+    so items carry no id."""
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return []
+    out = []
+    try:
+        conn = _conn(path)
+    except Exception:
+        return []
+    for league, sql in _EXTRA_QUERIES:
+        try:
+            for r in conn.execute(sql, (limit_per_league,)).fetchall():
+                d = dict(r)
+                d["league"] = league
+                out.append(d)
+        except Exception:
+            continue
+    conn.close()
+    return out
+
+
 def get_standings() -> list[dict]:
     path = _db_path()
     if not path or not os.path.exists(path):

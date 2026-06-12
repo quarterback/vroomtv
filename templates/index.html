@@ -29,7 +29,7 @@
 
     <div class="score-sections">
       {% macro scorecard(url, away, home, ascore, hscore, note='') %}
-      <a class="card" href="{{ url }}">
+      <a class="card" {% if url %}href="{{ url }}"{% endif %}>
         <span class="card-note">{{ note or 'Final' }}</span>
         <span class="card-row {{ 'won' if ascore > hscore else 'lost' }}"><span>{{ away }}</span><b>{{ ascore }}</b></span>
         <span class="card-row {{ 'won' if hscore >= ascore else 'lost' }}"><span>{{ home }}</span><b>{{ hscore }}</b></span>
@@ -47,6 +47,14 @@
           {% endfor %}
         </div>
         {% endif %}
+        {% for league, games in baseball_extra | groupby('league') %}
+        <h3 class="subsect">{{ league }}</h3>
+        <div class="card-grid">
+          {% for g in games %}
+          {{ scorecard(None, g.away_name, g.home_name, g.away_score, g.home_score, (g.note or 'Final') | title) }}
+          {% endfor %}
+        </div>
+        {% endfor %}
       </section>
 
       <section>

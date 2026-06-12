@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os
 from datetime import datetime
+from urllib.parse import quote
 from flask import Flask, Response, render_template, abort, jsonify, request
 from adapters import baseball, viperball, tennis
 import newsroom
@@ -33,13 +34,21 @@ def _ticker(per_sport: int = 8) -> list[dict]:
             "note": "Playoffs" if g["is_playoff"] else "Final",
             "url": f"/game/baseball/{g['id']}",
         })
+    for g in baseball.get_extra_scores(limit_per_league=per_sport):
+        items.append({
+            "sport": "Baseball", "league": g["league"],
+            "away": g["away_name"][:3].upper(), "home": g["home_name"][:3].upper(),
+            "away_score": g["away_score"], "home_score": g["home_score"],
+            "note": (g.get("note") or "Final").title(),
+            "url": None,
+        })
     for g in viperball.get_recent_scores(limit_per_league=per_sport):
         items.append({
             "sport": "Viperball", "league": g["league"],
             "away": g["away_name"][:3].upper(), "home": g["home_name"][:3].upper(),
             "away_score": g["away_score"], "home_score": g["home_score"],
             "note": f"Wk {g['week']}",
-            "url": f"/game/viperball/{g['save_key']}/{g['week']}/{g['matchup_key']}",
+            "url": f"/game/viperball/{quote(g['save_key'])}/{g['week']}/{quote(g['matchup_key'])}",
         })
     for g in tennis.get_recent_scores(limit_per_source=per_sport):
         items.append({
@@ -86,6 +95,7 @@ def index():
         "index.html",
         articles=articles, wire=wire,
         baseball_scores=baseball_scores,
+        baseball_extra=baseball.get_extra_scores(),
         viperball_scores=viperball_scores,
         tennis_scores=tennis_scores,
         baseball_configured=bool(os.environ.get("BASEBALL_DB")),

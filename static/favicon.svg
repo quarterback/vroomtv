@@ -1,4 +1,15 @@
+<<<<<<< claude/amazing-curie-2jsqdk
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <rect width="16" height="16" rx="3" fill="#0b3d2e"/>
+  <!-- back peak -->
+  <polygon points="7.5,13 11.5,5.5 15.2,13" fill="#4a8f5c"/>
+  <!-- front peak -->
+  <polygon points="0.8,13 6,3.5 11.2,13" fill="#7fb069"/>
+  <!-- snow cap -->
+  <polygon points="6,3.5 7.3,5.9 6.5,5.4 6,6 5.5,5.4 4.7,5.9" fill="#f4f1ea"/>
+=======
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="10" fill="#0a0a0a"/>
   <text x="32" y="44" font-family="Georgia, serif" font-size="40" font-weight="900" text-anchor="middle" fill="#e63946">R</text>
+>>>>>>> main
 </svg>
