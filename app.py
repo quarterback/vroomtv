@@ -255,7 +255,17 @@ def standings():
     for c in catalog:
         c["leagues"].sort(key=lambda l: l["tier"] != "Pro")  # Pro first
     entry, sel = _pick(catalog)
-    return render_template("standings.html", catalog=catalog, entry=entry, sel=sel)
+    confs, sel_conf = [], ""
+    if sel and sel.get("teams"):
+        confs = sorted({t.get("conf") for t in sel["teams"] if t.get("conf")})
+        sel_conf = request.args.get("conf", "")
+        if sel_conf and sel_conf in confs:
+            sel = dict(sel)  # don't mutate cached adapter rows
+            sel["teams"] = [t for t in sel["teams"] if t.get("conf") == sel_conf]
+        else:
+            sel_conf = ""
+    return render_template("standings.html", catalog=catalog, entry=entry,
+                           sel=sel, confs=confs, sel_conf=sel_conf)
 
 
 def _tennis_leader_boards() -> list[dict]:
@@ -300,6 +310,89 @@ def _tennis_leader_boards() -> list[dict]:
                  "cols": [("M", "matches", None), ("W", "wins", None),
                           ("Pct", "win_pct", "%.3f")], "rows": rows}]})
     return leagues
+
+
+@app.route("/scores")
+def scores():
+    """Full scoreboard: sport → league → conference, games grouped by
+    week / date. The front page shows a teaser; this is the archive."""
+    catalog = []
+    bb = baseball.get_recent_scores(limit=80)
+    bb_leagues = []
+    if bb:
+        bb_leagues.append({"label": "O27 League", "tier": "Pro", "games": [
+            {"away": g["away_name"], "home": g["home_name"],
+             "ascore": g["away_score"], "hscore": g["home_score"],
+             "url": f"/game/baseball/{g['id']}",
+             "group": g["game_date"],
+             "note": "Playoffs" if g["is_playoff"] else "", "conf": ""}
+            for g in bb]})
+    extras = baseball.get_extra_scores(limit_per_league=80)
+    by_extra: dict = {}
+    for g in extras:
+        by_extra.setdefault(g["league"], []).append(g)
+    for label, games in by_extra.items():
+        tier = "International" if label in ("Youth Cup", "World Cup") else "College"
+        bb_leagues.append({"label": label, "tier": tier, "games": [
+            {"away": g["away_name"], "home": g["home_name"],
+             "ascore": g["away_score"], "hscore": g["home_score"],
+             "url": f"/game/baseball/{g['tier']}/{g['id']}",
+             "group": (g.get("note") or "").title() or "Recent", "conf": "", "note": ""}
+            for g in games]})
+    if bb_leagues:
+        catalog.append({"sport": "Baseball", "leagues": bb_leagues})
+
+    vb = viperball.get_recent_scores(limit_per_league=80)
+    by_vb: dict = {}
+    for g in vb:
+        by_vb.setdefault(g["league"], []).append(g)
+    if by_vb:
+        catalog.append({"sport": "Viperball", "leagues": [
+            {"label": label, "tier": "College" if "College" in label else "Pro",
+             "games": [
+                 {"away": g["away_name"], "home": g["home_name"],
+                  "ascore": g["away_score"], "hscore": g["home_score"],
+                  "url": f"/game/viperball/{quote(g['save_key'])}/{g['week']}/{quote(g['matchup_key'])}",
+                  "group": f"Week {g['week']}", "conf": g.get("conf", ""), "note": ""}
+                 for g in games]}
+            for label, games in by_vb.items()]})
+
+    tn = tennis.get_recent_scores(limit_per_source=80)
+    by_tn: dict = {}
+    for g in tn:
+        by_tn.setdefault(g["league"], []).append(g)
+    if by_tn:
+        catalog.append({"sport": "Tennis", "leagues": [
+            {"label": label,
+             "tier": "Pro" if games and games[0]["source"] == "gtt" else "College",
+             "games": [
+                 {"away": g["away_name"], "home": g["home_name"],
+                  "ascore": g["away_points"], "hscore": g["home_points"],
+                  "url": f"/game/tennis/{g['source']}/{g['id']}",
+                  "group": f"Week {g['week']}", "conf": g.get("conf", ""), "note": ""}
+                 for g in games]}
+            for label, games in by_tn.items()]})
+
+    for c in catalog:
+        c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
+    entry, sel = _pick(catalog)
+    confs, sel_conf = [], ""
+    groups = []
+    if sel:
+        confs = sorted({g["conf"] for g in sel["games"] if g["conf"]})
+        sel_conf = request.args.get("conf", "")
+        games = sel["games"]
+        if sel_conf and sel_conf in confs:
+            games = [g for g in games if g["conf"] == sel_conf]
+        else:
+            sel_conf = ""
+        seen: dict = {}
+        for g in games:
+            seen.setdefault(g["group"], []).append(g)
+        groups = list(seen.items())
+    return render_template("scores.html", catalog=catalog, entry=entry,
+                           sel=sel, confs=confs, sel_conf=sel_conf,
+                           groups=groups)
 
 
 @app.route("/leaders")

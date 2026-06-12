@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_filters.html" import filter_bar, scorecard %}
+{% block title %}Scores — Rocky Mountain News{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">Scores</h1>
+  {{ filter_bar(catalog, entry, sel, 'scores', confs, sel_conf) }}
+</div>
+
+{% if not sel %}
+<div class="empty-note">No games yet — the sims haven't filed any results.</div>
+{% else %}
+{% for group, games in groups %}
+<section>
+  <h2 class="sect">{{ sel.label }} &middot; {{ group }}</h2>
+  <div class="card-grid">
+    {% for g in games %}
+    {{ scorecard(g.url, g.away, g.home, g.ascore, g.hscore, g.conf or g.note) }}
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<div class="empty-note">No games match that filter.</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

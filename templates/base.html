@@ -52,6 +52,7 @@
   <a class="brand" href="{{ url_for('index') }}"><span class="brand-name">Rocky Mountain News</span><span class="brand-tag">Sports</span></a>
   <div class="nav-links">
     <a href="{{ url_for('index') }}"{% if request.endpoint == 'index' %} class="active"{% endif %}>Home</a>
+    <a href="{{ url_for('scores') }}"{% if request.endpoint == 'scores' %} class="active"{% endif %}>Scores</a>
     <a href="{{ url_for('news') }}"{% if request.endpoint in ('news', 'article') %} class="active"{% endif %}>News</a>
     <a href="{{ url_for('standings') }}"{% if request.endpoint == 'standings' %} class="active"{% endif %}>Standings</a>
     <a href="{{ url_for('leaders') }}"{% if request.endpoint == 'leaders' %} class="active"{% endif %}>Leaders</a>
