@@ -12,6 +12,39 @@ app = Flask(__name__)
 sync.start_timer()
 
 
+@app.route("/upload/<sport>", methods=["POST", "PUT"])
+def upload_db(sport: str):
+    """Receive a sim DB pushed from elsewhere (e.g. a Fly web console on a
+    machine whose disk is ephemeral). Same auth as /sync. Raw body:
+
+        curl -X POST --data-binary @data/viperball.db \\
+             -H "Authorization: Bearer $TOKEN" https://<hub>/upload/viperball
+    """
+    dest_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
+                "tennis": "TENNIS_DB"}.get(sport)
+    token = os.environ.get("SYNC_TOKEN")
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
+        or request.args.get("token", "")
+    if not dest_env or not token or supplied != token:
+        abort(404)
+    dest = os.environ.get(dest_env)
+    if not dest:
+        abort(404)
+    import tempfile
+    os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(dest) or ".", suffix=".tmp")
+    size = 0
+    with os.fdopen(fd, "wb") as out:
+        while chunk := request.stream.read(1 << 20):
+            out.write(chunk)
+            size += len(chunk)
+    if size == 0:
+        os.unlink(tmp)
+        return jsonify({"error": "empty body"}), 400
+    os.replace(tmp, dest)
+    return jsonify({sport: f"ok ({size:,} bytes)"})
+
+
 @app.route("/sync", methods=["GET", "POST"])
 def sync_now():
     """Manual pull of all feeds. Browser-friendly: /sync?token=<SYNC_TOKEN>."""
