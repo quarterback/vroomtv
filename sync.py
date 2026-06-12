@@ -118,14 +118,13 @@ def sync_all() -> dict:
     base = os.environ.get("VIPERBALL_PORTAL_URL")
     if vb_sessions_path and os.path.exists(vb_sessions_path) and base:
         try:
+            import glob as _glob
             import json
             with open(vb_sessions_path) as fh:
                 sessions = json.load(fh).get("college", [])
+            active = {s.get("session_id") for s in sessions if s.get("session_id")}
             ok = 0
-            for s in sessions:
-                sid = s.get("session_id")
-                if not sid:
-                    continue
+            for sid in active:
                 dest = _portal_path("viperball", f"vb_kp_{sid}.json")
                 try:
                     url = f"{base.rstrip('/')}/export/college/{sid}/standings.json"
@@ -135,8 +134,22 @@ def sync_all() -> dict:
                     ok += 1
                 except Exception:
                     continue
+            # Drop kenpom snapshots for sessions the sim no longer reports —
+            # otherwise the hub keeps surfacing dead "College (xxxx)" tabs.
+            kp_dir = os.path.dirname(vb_sessions_path) or "."
+            pruned = 0
+            for fp in _glob.glob(os.path.join(kp_dir, "vb_kp_*.json")):
+                sid = os.path.basename(fp)[len("vb_kp_"):-len(".json")]
+                if sid not in active:
+                    try:
+                        os.unlink(fp)
+                        pruned += 1
+                    except OSError:
+                        pass
             if ok:
                 results["viperball_kenpom"] = f"ok ({ok} session{'s' if ok != 1 else ''})"
+            if pruned:
+                results["viperball_kenpom_pruned"] = pruned
         except Exception as e:
             log.info("viperball kenpom fanout skipped: %s", e)
 
