@@ -70,12 +70,12 @@
     <div class="wire-notice">No data — TENNIS_DB not configured or insufficient matches</div>
   {% else %}
     <div class="leaders-subsection">
-      <h3>Winners (min. 3 matches)</h3>
+      <h3>Singles Match Wins (min. 3 matches)</h3>
       <table class="leaders-table">
-        <thead><tr><th>#</th><th>Player</th><th>School</th><th>M</th><th>Winners</th><th>Aces</th><th>UE</th><th>Rating</th></tr></thead>
+        <thead><tr><th>#</th><th>Player</th><th>Club</th><th>League</th><th>M</th><th>W</th><th>Pct</th></tr></thead>
         <tbody>
         {% for p in tennis_leaders %}
-          <tr><td class="rank">{{ loop.index }}</td><td class="player-name">{{ p.name }}</td><td>{{ p.school or '&mdash;' }}</td><td>{{ p.matches_played }}</td><td><strong>{{ p.total_winners }}</strong></td><td>{{ p.total_aces }}</td><td>{{ p.total_ue }}</td><td>{{ '%.2f'|format(p.rating) if p.rating else '&mdash;' }}</td></tr>
+          <tr><td class="rank">{{ loop.index }}</td><td class="player-name">{{ p.name }}</td><td>{{ p.team or '&mdash;' }}</td><td>{{ p.league }}</td><td>{{ p.matches }}</td><td><strong>{{ p.wins }}</strong></td><td>{{ '%.3f'|format(p.win_pct) }}</td></tr>
         {% endfor %}
         </tbody>
       </table>

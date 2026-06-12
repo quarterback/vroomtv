@@ -4,7 +4,9 @@ import sys
 
 def runserver():
     from app import app
-    port = int(os.environ.get("PORT", 6000))
+    # 6000 is on browsers' unsafe-port blocklist (X11); 5050 avoids that
+    # and the macOS AirPlay listener on 5000.
+    port = int(os.environ.get("PORT", 5050))
     app.run(host="0.0.0.0", port=port, debug=False)
 
 if __name__ == "__main__":

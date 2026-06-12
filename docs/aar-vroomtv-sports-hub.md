@@ -39,3 +39,42 @@ User wanted an ESPN-style aggregator across all three sims. Feasibility was asse
 4. Verify scores page shows data for each configured sport
 5. Click through to a game detail page for each sport
 6. Check that a second viperball league (if you have one) appears as a separate section
+
+---
+
+## Post-handoff verification & fixes (2026-06-12)
+
+The app was moved to this repo and tested against freshly generated DBs from
+all three sims (8-team baseball season slice, NVL + Eurasian League viperball
+saves, one GTT league + one NCAA D1 women season). Every route returned 200
+with real data; both viperball leagues appeared as separate sections.
+
+**Bugs found and fixed in `adapters/tennis.py`:**
+
+- All queries filtered `status='complete'`, but both tennis season modes only
+  ever write `'scheduled'` / `'final'` — no tennis data would ever have shown.
+- GTT standings treated `gtt_duals.winner` as a franchise id. It is a 0/1
+  home/away flag (0 = home won) — exactly the risk flagged above. Standings
+  now mirror the sim's own logic (`app/gtt_seasonmode.py`), including the
+  regular-season-only (`round='REG'`) scope.
+- NCAA standings had the flag inverted (counted `winner=1` as a home win;
+  0 means home won).
+- `get_stat_leaders` read the `matches`/`match_stats` tables, which only the
+  one-off CLI sims populate — season play stores per-match data in
+  `lines_json`, and fast-fidelity duals zero their stat blocks. Leaders are
+  now singles match wins aggregated from `lines_json` (GTT MS*/WS* slots via
+  `gtt_players` pid lookup, NCAA S* slots by name).
+
+**Other:**
+
+- The viperball `streak`/`streak_type` worry above was unfounded — the save
+  blob (`engine/db.py: serialize_pro_league_season`) keeps them as separate
+  keys, matching the adapter.
+- The baseball adapter was audited against `o27v2/db.py` schemas — correct
+  as written. Note the o27v2 saves registry may place the live DB under
+  `o27v2/saves/<save>.db` rather than `o27v2/o27v2.db`; point `BASEBALL_DB`
+  at the actual file.
+- Default port moved 6000 → 5050: browsers block 6000 as an unsafe port
+  (X11), and 5000 collides with macOS AirPlay.
+
+Still not done: deployment config (Dockerfile / fly.toml / Procfile).
