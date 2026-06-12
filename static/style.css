@@ -372,6 +372,7 @@ section { margin-bottom: 36px; }
   white-space: nowrap;
 }
 .chip:hover { border-color: var(--ink); }
+.chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
 .story-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 28px 0 36px; }
 @media (max-width: 700px) { .story-grid { grid-template-columns: 1fr; } }
 .story-card img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; image-rendering: pixelated; border-radius: 4px; margin-bottom: 8px; }

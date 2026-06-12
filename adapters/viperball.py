@@ -241,22 +241,22 @@ def get_standings() -> list[dict]:
     return out
 
 
-# Leader boards: (title, sort key, columns). A board only renders when at
-# least one player has a nonzero sort stat, so leagues without e.g. drop
-# kicks don't show an empty table.
+# Leader boards: (title, sort key, columns as (label, key, fmt|None)).
+# A board only renders when at least one player has a nonzero sort stat,
+# so leagues without e.g. drop kicks don't show an empty table.
 _BOARDS = [
     ("Rushing", "rushing_yards",
-     [("Yds", "rushing_yards"), ("Car", "rushing_carries"), ("TD", "touchdowns")]),
+     [("Yds", "rushing_yards", None), ("Car", "rushing_carries", None), ("TD", "touchdowns", None)]),
     ("Kick passing", "kick_pass_yards",
-     [("Yds", "kick_pass_yards"), ("Cmp", "kick_pass_completions"), ("TD", "kick_pass_tds")]),
+     [("Yds", "kick_pass_yards", None), ("Cmp", "kick_pass_completions", None), ("TD", "kick_pass_tds", None)]),
     ("Laterals", "lateral_yards",
-     [("Yds", "lateral_yards"), ("Thrown", "laterals")]),
+     [("Yds", "lateral_yards", None), ("Thrown", "laterals", None)]),
     ("Defense", "tackles",
-     [("Tkl", "tackles"), ("TFL", "tfl"), ("Sacks", "sacks")]),
+     [("Tkl", "tackles", None), ("TFL", "tfl", None), ("Sacks", "sacks", None)]),
     ("Kicking", "dk_made",
-     [("DK", "dk_made"), ("Att", "dk_att")]),
+     [("DK", "dk_made", None), ("Att", "dk_att", None)]),
     ("All-purpose", "total_yards",
-     [("Yds", "total_yards"), ("TD", "touchdowns")]),
+     [("Yds", "total_yards", None), ("TD", "touchdowns", None)]),
 ]
 
 
@@ -267,7 +267,10 @@ def _build_boards(players: list[dict], limit: int = 10) -> list[dict]:
         if not rows:
             continue
         rows.sort(key=lambda p: -p.get(sort_key, 0))
-        boards.append({"title": title, "sort": sort_key, "cols": cols,
+        for r in rows:
+            r.setdefault("team", r.get("team_key", ""))
+        boards.append({"title": title, "sort": sort_key,
+                       "cols": [("Pos", "position", None), ("G", "games", None)] + cols,
                        "rows": rows[:limit]})
     return boards
 
