@@ -16,6 +16,19 @@ def _db_path() -> str | None:
     return os.environ.get("TENNIS_DB") or None
 
 
+def _school_confs(conn, season_id: int) -> dict[str, str]:
+    """school → conference, derived from conference duals (both sides of an
+    is_conf dual belong to that dual's conference)."""
+    out: dict[str, str] = {}
+    for r in conn.execute(
+        "SELECT home, away, conf FROM duals WHERE season_id=? AND is_conf=1 AND conf IS NOT NULL",
+        (season_id,)
+    ).fetchall():
+        out.setdefault(r["home"], r["conf"])
+        out.setdefault(r["away"], r["conf"])
+    return out
+
+
 def get_recent_scores(limit_per_source: int = 8) -> list[dict]:
     path = _db_path()
     if not path or not os.path.exists(path):
@@ -45,7 +58,7 @@ def get_recent_scores(limit_per_source: int = 8) -> list[dict]:
         for s in conn.execute("SELECT id, division, gender FROM seasons ORDER BY id").fetchall():
             label = f"{s['division'].upper()} {s['gender'].title()}"
             rows = conn.execute("""
-                SELECT id, week, home, away, home_points, away_points
+                SELECT id, week, home, away, home_points, away_points, conf, is_conf
                 FROM duals WHERE season_id = ? AND status = 'final'
                 ORDER BY id DESC LIMIT ?
             """, (s["id"], limit_per_source)).fetchall()
@@ -55,6 +68,7 @@ def get_recent_scores(limit_per_source: int = 8) -> list[dict]:
                     "id": r["id"], "week": r["week"],
                     "home_name": r["home"], "away_name": r["away"],
                     "home_points": r["home_points"], "away_points": r["away_points"],
+                    "conf": r["conf"] if r["is_conf"] else "",
                 })
         conn.close()
     except Exception:
@@ -102,11 +116,13 @@ def get_standings() -> list[dict]:
                        SUM(CASE WHEN winner=0 THEN 1 ELSE 0 END)
                 FROM duals WHERE season_id=? AND status='final' GROUP BY away
             """, (s["id"], s["id"])).fetchall()
+            confs = _school_confs(conn, s["id"])
             agg: dict[str, dict] = {}
             for r in rows:
                 sch = r["school"]
                 if sch not in agg:
-                    agg[sch] = {"name": sch, "wins": 0, "losses": 0}
+                    agg[sch] = {"name": sch, "wins": 0, "losses": 0,
+                                "conf": confs.get(sch, "")}
                 agg[sch]["wins"] += r["wins"]
                 agg[sch]["losses"] += r["losses"]
             out.append({"league": label, "source": "ncaa", "tier": "College",

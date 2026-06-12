@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_filters.html" import scorecard %}
 {% block title %}Rocky Mountain News — Sports{% endblock %}
 {% block content %}
 
@@ -54,14 +55,6 @@
     {% endif %}
 
     <div class="score-sections">
-      {% macro scorecard(url, away, home, ascore, hscore, note='') %}
-      <a class="card" {% if url %}href="{{ url }}"{% endif %}>
-        <span class="card-note">{{ note or 'Final' }}</span>
-        <span class="card-row {{ 'won' if ascore > hscore else 'lost' }}"><span>{{ away }}</span><b>{{ ascore }}</b></span>
-        <span class="card-row {{ 'won' if hscore >= ascore else 'lost' }}"><span>{{ home }}</span><b>{{ hscore }}</b></span>
-      </a>
-      {% endmacro %}
-
       <section>
         <h2 class="sect">Baseball</h2>
         {% if not baseball_configured %}<div class="empty-note">Not configured</div>

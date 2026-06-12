@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-head">
   <h1 class="page-title">Standings</h1>
-  {{ filter_bar(catalog, entry, sel, 'standings') }}
+  {{ filter_bar(catalog, entry, sel, 'standings', confs, sel_conf) }}
 </div>
 
 {% if not sel %}

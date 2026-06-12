@@ -168,9 +168,14 @@ def get_recent_scores(limit_per_league: int = 8) -> list[dict]:
                     collected += 1
                 if collected >= limit_per_league:
                     break
+        kp = _portal_kenpom()
         for lg in _college_leagues(path):
+            team_conf = {r["team"]: r.get("conference", "")
+                         for r in kp.get(lg["save_key"], [])}
             for g in lg["games"][:limit_per_league]:
-                results.append({"league": lg["label"], "save_key": lg["save_key"], **g})
+                hc, ac = team_conf.get(g["home_name"], ""), team_conf.get(g["away_name"], "")
+                results.append({"league": lg["label"], "save_key": lg["save_key"],
+                                "conf": hc if hc and hc == ac else "", **g})
     except Exception:
         pass
     return results
@@ -225,7 +230,7 @@ def get_standings() -> list[dict]:
             teams = lg["teams"]
             kp_rows = kp.get(lg["save_key"])
             if kp_rows:
-                # Merge KenPom efficiency onto the team rows.
+                # Merge KenPom efficiency + conference onto the team rows.
                 by_name = {r["team"]: r for r in kp_rows}
                 for t in teams:
                     extras = by_name.get(t["team_name"])
@@ -233,6 +238,8 @@ def get_standings() -> list[dict]:
                         for k in ("adj_o", "adj_d", "tempo", "em", "luck"):
                             if extras.get(k) is not None:
                                 t[k] = extras[k]
+                        if extras.get("conference"):
+                            t["conf"] = extras["conference"]
             out.append({"league": lg["label"], "save_key": lg["save_key"],
                         "tier": "College", "teams": teams,
                         "has_kenpom": bool(kp_rows)})

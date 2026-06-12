@@ -25,7 +25,7 @@ primary_region = 'sjc'
   TENNIS_PORTAL_URL = 'https://pctennis.xyz'
   VIPERBALL_DB = '/app/data/viperball.db'
   VIPERBALL_SYNC_URL = 'https://viperball.xyz/export/db'
-  VIPERBALL_PORTAL_URL = 'https://viperball.xyz'
+  VIPERBALL_PORTAL_URL = 'https://viperball.xyz/stats'
 
 [http_service]
   internal_port = 8080
