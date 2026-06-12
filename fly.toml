@@ -1,38 +1,37 @@
-app = "vroomtv"
-primary_region = "ams"
+# fly.toml app configuration file generated for vroomtv on 2026-06-12T03:13:50Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'vroomtv'
+primary_region = 'sjc'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  PORT = "8080"
-  # The hub reads each sim's SQLite file read-only from the volume below,
-  # and refills those files itself by pulling each sim's /export/db feed
-  # (see sync.py). Set the SYNC_TOKEN secret to the same value as each
-  # sim's EXPORT_TOKEN secret. A missing file shows a placeholder.
-  BASEBALL_DB = "/data/o27v2.db"
-  VIPERBALL_DB = "/data/viperball.db"
-  TENNIS_DB = "/data/tennis.db"
-  BASEBALL_SYNC_URL = "https://superinnin.gs/export/db"
-  VIPERBALL_SYNC_URL = "https://viperball.xyz/export/db"
-  TENNIS_SYNC_URL = "https://pctennis.xyz/export/db"
-  SYNC_INTERVAL_MIN = "30"
+  BASEBALL_DB = '/data/o27v2.db'
+  BASEBALL_SYNC_URL = 'https://superinnin.gs/export/db'
+  PORT = '8080'
+  SYNC_INTERVAL_MIN = '30'
+  TENNIS_DB = '/data/tennis.db'
+  TENNIS_SYNC_URL = 'https://pctennis.xyz/export/db'
+  VIPERBALL_DB = '/data/viperball.db'
+  VIPERBALL_SYNC_URL = 'https://viperball.xyz/export/db'
 
 [[mounts]]
-  source = "vroomtv_data"
-  destination = "/data"
-  initial_size = "1gb"
+  source = 'vroomtv_data'
+  destination = '/data'
+  initial_size = '1gb'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  # Keep the machine awake: the background DB sync (sync.py) only runs
-  # while the app is up, and a stopped hub never refreshes its scores.
-  auto_stop_machines = false
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
 
 [[vm]]
-  cpu_kind = "shared"
+  cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
