@@ -1,9 +1,10 @@
-# vroomtv — The Unassociated Press Sports Wire
+# vroomtv — Rocky Mountain News (Sports)
 
-A cross-sport scores hub in the style of a 1940s wire-service broadsheet.
-It aggregates live results from three sports sims into one front page:
-unified scores, standings, stat leaders, and game detail pages — pure
-server-rendered HTML, no JavaScript.
+A cross-sport sports section in a modern newspaper design (The Athletic ×
+Sporting News, with an ESPN-style scoreboard strip). It aggregates live
+results from three sports sims into one front page: scores, standings,
+stat leaders, news stories, and game detail pages — server-rendered HTML
+with a few lines of JS for the scoreboard's league filter.
 
 | Sport | Sim | Live site |
 | --- | --- | --- |
@@ -55,10 +56,16 @@ fly launch --copy-config --no-deploy   # first time: creates the app + volume
 fly deploy
 ```
 
-The env vars point at `/data/*.db` on the app's volume. Upload a snapshot
-of each sim's DB with `fly sftp shell` → `put viperball.db /data/viperball.db`
-(same for the other two); refresh them whenever you want newer scores. Any
-sport without a file uploaded shows a placeholder.
+The env vars point at `/data/*.db` on the app's volume. To load data, run
+
+```bash
+./scripts/sync-dbs.sh
+```
+
+from any machine where `fly` is logged in — it pulls each sim's live DB
+straight from its Fly app (resolving baseball's active save automatically)
+and uploads them to the hub's volume. Re-run it whenever you want fresher
+scores; no restart needed. Any sport without a file shows a placeholder.
 
 This won't work on static/serverless hosts (Netlify, GitHub Pages, Vercel's
 static mode): the hub is a long-running Flask server that reads SQLite files
@@ -81,8 +88,9 @@ from local disk.
 app.py            Flask routes (thin — rendering only)
 manage.py         runserver entry point
 adapters/         one read-only DB adapter per sport
-templates/        broadsheet UI (Jinja, no JS)
-static/style.css  ink-on-newsprint palette, wire-grid layout
+newsroom.py       placeholder headlines parsed from results + pixel-art SVGs
+templates/        Jinja UI: scoreboard strip, front page, news, box scores
+static/style.css  the design system (Fontshare: Boska / Zodiak / Switzer)
 docs/             after-action report (build + verification history)
 ```
 

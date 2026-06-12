@@ -1,5 +1,5 @@
-/* Unassociated Press — The Athletic × Sporting News × ESPN-strip.
-   Switzer carries all UI and data; Zodiak carries headlines and stories. */
+/* Rocky Mountain News (Sports) — The Athletic × Sporting News × ESPN-strip.
+   Switzer carries UI and data; Zodiak carries headlines; Boska, the nameplate. */
 
 :root {
   --ink: #16171a;
@@ -102,17 +102,23 @@ img { display: block; max-width: 100%; }
   padding: 0 20px;
   height: 52px;
 }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-block {
+.brand { display: flex; align-items: baseline; gap: 9px; }
+.brand-name {
+  font: 900 19px/1 'Boska', var(--serif);
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+}
+.brand-name.sm { font-size: 15px; color: var(--ink); }
+.brand-tag {
   background: var(--red);
   color: #fff;
-  font: italic 900 16px/1 var(--sans);
-  letter-spacing: -0.03em;
-  padding: 6px 7px 5px;
+  font: 800 10px/1 var(--sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 6px 3px;
   border-radius: 2px;
+  transform: translateY(-2px);
 }
-.brand-block.sm { font-size: 11px; padding: 4px 5px 3px; }
-.brand-name { font: 800 15px var(--sans); letter-spacing: 0.01em; white-space: nowrap; }
 .nav-links { display: flex; gap: 22px; flex: 1; }
 .nav-links a {
   font: 700 12.5px/52px var(--sans);
@@ -283,8 +289,8 @@ section { margin-bottom: 36px; }
   border-top: 1px solid var(--rule);
   padding: 20px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: baseline;
+  gap: 8px;
   font-size: 12.5px;
   color: var(--muted);
 }

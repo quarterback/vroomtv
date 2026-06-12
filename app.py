@@ -1,4 +1,4 @@
-"""Unassociated Press — cross-sport scores and news hub."""
+"""Rocky Mountain News (Sports) — cross-sport scores and news hub."""
 from __future__ import annotations
 import os
 from datetime import datetime

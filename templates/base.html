@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Unassociated Press{% endblock %}</title>
+  <title>{% block title %}Rocky Mountain News — Sports{% endblock %}</title>
   <link rel="preconnect" href="https://api.fontshare.com">
-  <link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800&f[]=zodiak@400,500,700,800,900&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800&f[]=zodiak@400,500,700,800,900&f[]=boska@700,900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -42,7 +42,7 @@
 </div>
 
 <nav class="topnav">
-  <a class="brand" href="{{ url_for('index') }}"><span class="brand-block">UP</span><span class="brand-name">Unassociated Press</span></a>
+  <a class="brand" href="{{ url_for('index') }}"><span class="brand-name">Rocky Mountain News</span><span class="brand-tag">Sports</span></a>
   <div class="nav-links">
     <a href="{{ url_for('index') }}"{% if request.endpoint == 'index' %} class="active"{% endif %}>Home</a>
     <a href="{{ url_for('news') }}"{% if request.endpoint in ('news', 'article') %} class="active"{% endif %}>News</a>
@@ -57,7 +57,7 @@
 </main>
 
 <footer class="footer">
-  <span class="brand-block sm">UP</span> Unassociated Press
+  <span class="brand-name sm">Rocky Mountain News</span><span class="brand-tag">Sports</span>
 </footer>
 
 <script>
