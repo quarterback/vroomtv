@@ -186,25 +186,61 @@ def article(slate_date: str, voice_id: str):
     return render_template("article.html", a=a)
 
 
+def _pick(catalog: list[dict]) -> tuple:
+    """Resolve ?sport=&league= against a [{sport, leagues:[{label,...}]}]
+    catalog: ESPN-style — you always look at exactly one league."""
+    sport = request.args.get("sport", "")
+    entry = next((c for c in catalog if c["sport"] == sport),
+                 catalog[0] if catalog else None)
+    if not entry:
+        return None, None
+    league = request.args.get("league", "")
+    sel = next((l for l in entry["leagues"] if l["label"] == league),
+               entry["leagues"][0])
+    return entry, sel
+
+
 @app.route("/standings")
 def standings():
-    return render_template(
-        "standings.html",
-        baseball_standings=baseball.get_standings(),
-        viperball_standings=viperball.get_standings(),
-        tennis_standings=tennis.get_standings(),
-    )
+    catalog = []
+    bb = baseball.get_standings()
+    if bb:
+        catalog.append({"sport": "Baseball", "leagues": [
+            {"label": "O27 League", "kind": "baseball", "rows": bb}]})
+    vb = viperball.get_standings()
+    if vb:
+        catalog.append({"sport": "Viperball", "leagues": [
+            {"label": lg["league"], "kind": "viperball", "teams": lg["teams"]}
+            for lg in vb]})
+    tn = tennis.get_standings()
+    if tn:
+        catalog.append({"sport": "Tennis", "leagues": [
+            {"label": lg["league"], "kind": "tennis", "teams": lg["teams"]}
+            for lg in tn]})
+    entry, sel = _pick(catalog)
+    return render_template("standings.html", catalog=catalog, entry=entry, sel=sel)
 
 
 @app.route("/leaders")
 def leaders():
-    return render_template(
-        "leaders.html",
-        baseball_batting=baseball.get_batting_leaders(),
-        baseball_pitching=baseball.get_pitching_leaders(),
-        viperball_leaders=viperball.get_stat_leaders(),
-        tennis_leaders=tennis.get_stat_leaders(),
-    )
+    catalog = []
+    batting, pitching = baseball.get_batting_leaders(), baseball.get_pitching_leaders()
+    if batting or pitching:
+        catalog.append({"sport": "Baseball", "leagues": [
+            {"label": "O27 League", "kind": "baseball",
+             "batting": batting, "pitching": pitching}]})
+    vb = viperball.get_stat_leaders()
+    if vb:
+        catalog.append({"sport": "Viperball", "leagues": [
+            {"label": lg["league"], "kind": "viperball", "leaders": lg["leaders"]}
+            for lg in vb]})
+    tn = tennis.get_stat_leaders()
+    if tn:
+        catalog.append({"sport": "Tennis", "leagues": [
+            {"label": lg["league"], "kind": "tennis", "leaders": lg["leaders"]}
+            for lg in tn]})
+    entry, sel = _pick(catalog)
+    return render_template("leaders.html", catalog=catalog, entry=entry, sel=sel)
 
 
 @app.route("/game/baseball/<int:game_id>")

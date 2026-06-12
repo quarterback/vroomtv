@@ -138,7 +138,19 @@ img { display: block; max-width: 100%; }
   .front { grid-template-columns: 1fr; }
   .brand-name, .nav-date { display: none; }
 }
-.page-title { font: 800 30px var(--serif); margin-bottom: 20px; }
+.page-title { font: 800 30px var(--serif); }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.filter-bar { display: flex; gap: 8px; }
+.filter-bar select {
+  font: 600 13px var(--sans);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  padding: 7px 12px;
+  background: var(--paper);
+  cursor: pointer;
+  max-width: 280px;
+}
 section { margin-bottom: 36px; }
 
 /* ── Lead story ────────────────────────────────────────────────────── */

@@ -113,7 +113,23 @@ def get_standings() -> list[dict]:
         return []
 
 
+def _qual_floors(conn: sqlite3.Connection, season: int) -> tuple[int, int]:
+    """Qualification floors that scale with how far the season has gone
+    (a fixed floor empties the boards early in a season): ~2 AB and ~3
+    outs per team-game, with small absolute minimums."""
+    row = conn.execute(
+        "SELECT COUNT(*), (SELECT COUNT(*) FROM teams) FROM games"
+        " WHERE season = ? AND played = 1", (season,)).fetchone()
+    played, teams = row[0] or 0, row[1] or 1
+    team_games = 2 * played / teams
+    return max(8, int(team_games * 2)), max(6, int(team_games * 3))
+
+
 def get_batting_leaders(limit: int = 10) -> list[dict]:
+    """Current-season batting leaders, aggregated from the per-game tables.
+
+    The season_player_* rollups are only written when a season is archived,
+    so mid-season the game tables are the one true source."""
     path = _db_path()
     if not path or not os.path.exists(path):
         return []
@@ -121,15 +137,21 @@ def get_batting_leaders(limit: int = 10) -> list[dict]:
         conn = _conn(path)
         season = _current_season(conn)
         rows = conn.execute("""
-            SELECT b.player_name, b.team_abbrev,
-                   b.g, b.ab, b.h, b.hr, b.rbi, b.bb, b.k,
-                   CASE WHEN b.ab > 0 THEN ROUND(CAST(b.h AS REAL)/b.ab, 3) ELSE 0 END AS avg
-            FROM season_player_batting b
-            WHERE b.season_id = (SELECT id FROM seasons WHERE season_number = ?)
-              AND b.ab >= 20
+            SELECT p.name AS player_name, t.abbrev AS team_abbrev,
+                   COUNT(DISTINCT b.game_id) AS g, SUM(b.ab) AS ab,
+                   SUM(b.hits) AS h, SUM(b.hr) AS hr, SUM(b.rbi) AS rbi,
+                   SUM(b.bb) AS bb, SUM(b.k) AS k,
+                   ROUND(CAST(SUM(b.hits) AS REAL) / SUM(b.ab), 3) AS avg
+            FROM game_batter_stats b
+            JOIN games gm ON gm.id = b.game_id AND gm.season = ? AND gm.played = 1
+            JOIN players p ON p.id = b.player_id
+            JOIN teams t ON t.id = b.team_id
+            WHERE b.phase = 0 AND b.is_playoff = 0
+            GROUP BY b.player_id
+            HAVING SUM(b.ab) >= ?
             ORDER BY avg DESC
             LIMIT ?
-        """, (season, limit)).fetchall()
+        """, (season, _qual_floors(conn, season)[0], limit)).fetchall()
         conn.close()
         return [dict(r) for r in rows]
     except Exception:
@@ -137,6 +159,7 @@ def get_batting_leaders(limit: int = 10) -> list[dict]:
 
 
 def get_pitching_leaders(limit: int = 10) -> list[dict]:
+    """Current-season ERA leaders from the per-game tables (see batting)."""
     path = _db_path()
     if not path or not os.path.exists(path):
         return []
@@ -144,19 +167,27 @@ def get_pitching_leaders(limit: int = 10) -> list[dict]:
         conn = _conn(path)
         season = _current_season(conn)
         rows = conn.execute("""
-            SELECT p.player_name, p.team_abbrev,
-                   p.g, p.gs, p.w, p.l, p.k, p.er, p.outs,
-                   CASE WHEN p.outs > 0
-                        THEN ROUND(CAST(p.er AS REAL) * 27.0 / p.outs, 2)
-                        ELSE 0 END AS era
-            FROM season_player_pitching p
-            WHERE p.season_id = (SELECT id FROM seasons WHERE season_number = ?)
-              AND p.outs >= 15
+            SELECT pl.name AS player_name, t.abbrev AS team_abbrev,
+                   COUNT(DISTINCT p.game_id) AS g, SUM(p.k) AS k,
+                   SUM(p.er) AS er, SUM(p.outs_recorded) AS outs,
+                   ROUND(CAST(SUM(p.er) AS REAL) * 27.0 / SUM(p.outs_recorded), 2) AS era
+            FROM game_pitcher_stats p
+            JOIN games gm ON gm.id = p.game_id AND gm.season = ? AND gm.played = 1
+            JOIN players pl ON pl.id = p.player_id
+            JOIN teams t ON t.id = p.team_id
+            WHERE p.phase = 0 AND p.is_playoff = 0
+            GROUP BY p.player_id
+            HAVING SUM(p.outs_recorded) >= ?
             ORDER BY era ASC
             LIMIT ?
-        """, (season, limit)).fetchall()
+        """, (season, _qual_floors(conn, season)[1], limit)).fetchall()
         conn.close()
-        return [dict(r) for r in rows]
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["ip"] = f"{d['outs'] // 3}.{d['outs'] % 3}"  # innings, baseball-style
+            out.append(d)
+        return out
     except Exception:
         return []
 

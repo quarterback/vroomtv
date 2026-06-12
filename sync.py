@@ -60,7 +60,21 @@ def sync_all() -> dict:
             log.warning("sync %s failed: %s", sport, e)
     _last["at"] = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
     _last["results"] = results
+    _warm_caches()
     return results
+
+
+def _warm_caches() -> None:
+    """Rebuild the heavy mtime-keyed adapter caches right after a sync so
+    no visitor pays the cold-parse cost on a small shared-CPU machine."""
+    try:
+        from adapters import tennis, viperball
+        vb = os.environ.get("VIPERBALL_DB")
+        if vb and os.path.exists(vb):
+            viperball._college_leagues(vb)
+        tennis.get_stat_leaders()
+    except Exception:
+        log.warning("cache warm failed", exc_info=True)
 
 
 def last_sync() -> dict:

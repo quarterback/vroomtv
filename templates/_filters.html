@@ -1,0 +1,15 @@
+{% macro filter_bar(catalog, entry, sel, endpoint) %}
+<form class="filter-bar" method="get" action="{{ url_for(endpoint) }}">
+  <select name="sport" aria-label="Sport" onchange="this.form.league.selectedIndex=-1;this.form.submit()">
+    {% for c in catalog %}
+    <option value="{{ c.sport }}"{% if entry and c.sport == entry.sport %} selected{% endif %}>{{ c.sport }}</option>
+    {% endfor %}
+  </select>
+  <select name="league" aria-label="League" onchange="this.form.submit()">
+    {% if entry %}{% for l in entry.leagues %}
+    <option value="{{ l.label }}"{% if sel and l.label == sel.label %} selected{% endif %}>{{ l.label }}</option>
+    {% endfor %}{% endif %}
+  </select>
+  <noscript><button type="submit">Go</button></noscript>
+</form>
+{% endmacro %}

@@ -1,15 +1,23 @@
 {% extends "base.html" %}
+{% from "_filters.html" import filter_bar %}
 {% block title %}Leaders — Rocky Mountain News{% endblock %}
 {% block content %}
-<h1 class="page-title">Leaders</h1>
+<div class="page-head">
+  <h1 class="page-title">Leaders</h1>
+  {{ filter_bar(catalog, entry, sel, 'leaders') }}
+</div>
 
+{% if not sel %}
+<div class="empty-note">No leaders yet — the sims haven't filed any results.</div>
+
+{% elif sel.kind == 'baseball' %}
 <section>
-  <h2 class="sect">Baseball</h2>
+  <h2 class="sect">{{ sel.label }}</h2>
   <div class="table-grid wide">
     <table class="data-table">
       <thead><tr><th>Batting Average</th><th class="n">G</th><th class="n">AB</th><th class="n">H</th><th class="n">HR</th><th class="n">RBI</th><th class="n">AVG</th></tr></thead>
       <tbody>
-      {% for p in baseball_batting %}
+      {% for p in sel.batting %}
       <tr><td class="t">{{ p.player_name }} <span class="meta">{{ p.team_abbrev }}</span></td>
           <td class="n">{{ p.g }}</td><td class="n">{{ p.ab }}</td><td class="n">{{ p.h }}</td><td class="n">{{ p.hr }}</td><td class="n">{{ p.rbi }}</td>
           <td class="n"><b>{{ '%.3f' | format(p.avg) }}</b></td></tr>
@@ -19,11 +27,11 @@
       </tbody>
     </table>
     <table class="data-table">
-      <thead><tr><th>Earned Run Average</th><th class="n">G</th><th class="n">W</th><th class="n">L</th><th class="n">K</th><th class="n">ERA</th></tr></thead>
+      <thead><tr><th>Earned Run Average</th><th class="n">G</th><th class="n">IP</th><th class="n">K</th><th class="n">ERA</th></tr></thead>
       <tbody>
-      {% for p in baseball_pitching %}
+      {% for p in sel.pitching %}
       <tr><td class="t">{{ p.player_name }} <span class="meta">{{ p.team_abbrev }}</span></td>
-          <td class="n">{{ p.g }}</td><td class="n">{{ p.w }}</td><td class="n">{{ p.l }}</td><td class="n">{{ p.k }}</td>
+          <td class="n">{{ p.g }}</td><td class="n">{{ p.ip }}</td><td class="n">{{ p.k }}</td>
           <td class="n"><b>{{ '%.2f' | format(p.era) }}</b></td></tr>
       {% else %}
       <tr><td class="t empty-note">No data</td></tr>
@@ -33,39 +41,32 @@
   </div>
 </section>
 
+{% elif sel.kind == 'viperball' %}
 <section>
-  <h2 class="sect">Viperball</h2>
-  <div class="table-grid wide">
-    {% for lg in viperball_leaders %}
-    <table class="data-table">
-      <thead><tr><th>{{ lg.league }} &middot; Rushing</th><th class="n">G</th><th class="n">Yds</th><th class="n">TD</th><th class="n">KP Yds</th></tr></thead>
-      <tbody>
-      {% for p in lg.leaders %}
-      <tr><td class="t">{{ p.name }} <span class="meta">{{ p.position }}</span></td>
-          <td class="n">{{ p.games }}</td><td class="n"><b>{{ p.rushing_yards }}</b></td><td class="n">{{ p.touchdowns }}</td><td class="n">{{ p.kick_pass_yards }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-note">No data</div>
+  <h2 class="sect">{{ sel.label }} &middot; Rushing</h2>
+  <table class="data-table full">
+    <thead><tr><th>Player</th><th>Pos</th><th class="n">G</th><th class="n">Rush Yds</th><th class="n">TD</th><th class="n">KP Yds</th></tr></thead>
+    <tbody>
+    {% for p in sel.leaders %}
+    <tr><td class="t">{{ p.name }} <span class="meta">{{ p.team_key }}</span></td><td>{{ p.position }}</td>
+        <td class="n">{{ p.games }}</td><td class="n"><b>{{ p.rushing_yards }}</b></td><td class="n">{{ p.touchdowns }}</td><td class="n">{{ p.kick_pass_yards }}</td></tr>
     {% endfor %}
-  </div>
+    </tbody>
+  </table>
 </section>
 
+{% elif sel.kind == 'tennis' %}
 <section>
-  <h2 class="sect">Tennis</h2>
-  <div class="table-grid">
-    <table class="data-table">
-      <thead><tr><th>Singles Wins (min. 3)</th><th></th><th class="n">M</th><th class="n">W</th><th class="n">Pct</th></tr></thead>
-      <tbody>
-      {% for p in tennis_leaders %}
-      <tr><td class="t">{{ p.name }} <span class="meta">{{ p.team }}</span></td><td>{{ p.league }}</td>
-          <td class="n">{{ p.matches }}</td><td class="n"><b>{{ p.wins }}</b></td><td class="n">{{ '%.3f' | format(p.win_pct) }}</td></tr>
-      {% else %}
-      <tr><td class="t empty-note">No data</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <h2 class="sect">{{ sel.label }} &middot; Singles Wins (min. 3)</h2>
+  <table class="data-table full">
+    <thead><tr><th>Player</th><th class="n">M</th><th class="n">W</th><th class="n">Pct</th></tr></thead>
+    <tbody>
+    {% for p in sel.leaders %}
+    <tr><td class="t">{{ p.name }} <span class="meta">{{ p.team }}</span></td>
+        <td class="n">{{ p.matches }}</td><td class="n"><b>{{ p.wins }}</b></td><td class="n">{{ '%.3f' | format(p.win_pct) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
 </section>
+{% endif %}
 {% endblock %}
