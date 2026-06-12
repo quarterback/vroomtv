@@ -37,6 +37,9 @@ def _item(sport: str, league: str, home: str, away: str,
         "sport": sport, "league": league, "url": url,
         "headline": headline, "extra": extra,
         "margin": margin, "total": ws + ls,
+        "home_name": home, "away_name": away,
+        "home_score": f"{hs:g}", "away_score": f"{as_:g}",
+        "home_won": hs >= as_,
         "art_seed": zlib.crc32(url.encode()),
     }
 

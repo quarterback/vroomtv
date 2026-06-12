@@ -243,11 +243,41 @@ def leaders():
     return render_template("leaders.html", catalog=catalog, entry=entry, sel=sel)
 
 
+def _duel(stats_a: dict, stats_b: dict, pairs: list) -> list[dict]:
+    """ABC-style head-to-head bars: [{label, a, b, a_pct}] for stats
+    present on both sides."""
+    out = []
+    for label, key in pairs:
+        a, b = stats_a.get(key), stats_b.get(key)
+        if a is None and b is None:
+            continue
+        a, b = float(a or 0), float(b or 0)
+        total = a + b
+        out.append({"label": label, "a": f"{a:g}", "b": f"{b:g}",
+                    "a_pct": round(100 * a / total) if total else 50})
+    return out
+
+
 @app.route("/game/baseball/<int:game_id>")
 def game_baseball(game_id: int):
     detail = baseball.get_game_detail(game_id)
     if not detail:
         abort(404)
+    g = detail["game"]
+
+    def _tot(team_id):
+        side = [b for b in detail["batters"] if b["team_id"] == team_id]
+        return {k: sum(b[col] for b in side) for k, col in
+                (("runs", "runs"), ("hits", "hits"), ("hr", "hr"),
+                 ("bb", "bb"), ("k", "k"))}
+    detail["duel"] = _duel(
+        _tot(g["away_team_id"]), _tot(g["home_team_id"]),
+        [("Runs", "runs"), ("Hits", "hits"), ("Home runs", "hr"),
+         ("Walks", "bb"), ("Strikeouts", "k")])
+    rows = baseball.get_standings()
+    divs = {t["division"] for t in rows
+            if t["name"] in (g["home_name"], g["away_name"])}
+    detail["ladder"] = [t for t in rows if t["division"] in divs]
     return render_template("game_baseball.html", **detail)
 
 
@@ -256,6 +286,40 @@ def game_viperball(save_key: str, week: int, matchup_key: str):
     detail = viperball.get_game_detail(save_key, week, matchup_key)
     if not detail:
         abort(404)
+    r = detail.get("result") or {}
+    stats = r.get("stats", {})
+    detail["duel"] = _duel(
+        stats.get("away", {}), stats.get("home", {}),
+        [("Total yards", "total_yards"), ("Rushing yards", "rushing_yards"),
+         ("Kick pass yards", "kick_pass_yards"), ("Lateral yards", "lateral_yards"),
+         ("Total plays", "total_plays"), ("Tackles", "tackles"),
+         ("Fumbles", "fumbles")])
+    scorers = {"home": [], "away": []}
+    for side in ("home", "away"):
+        for p in r.get("player_stats", {}).get(side, []):
+            tds = p.get("tds", p.get("touchdowns", p.get("game_touchdowns", 0)))
+            if tds:
+                scorers[side].append({"name": p.get("name", ""), "tds": tds})
+        scorers[side].sort(key=lambda s: -s["tds"])
+    detail["scorers"] = scorers
+    drives = r.get("drive_summary") or []
+    total = sum(max(d.get("yards", 0), 3) for d in drives) or 1
+    x, chart = 0.0, []
+    for d in drives:
+        w = 100 * max(d.get("yards", 0), 3) / total
+        chart.append({
+            "x": round(x, 2), "w": round(max(w - 0.4, 0.3), 2),
+            "team": d.get("team", "home"),
+            "td": "touchdown" in str(d.get("result", "")),
+            "title": f"Q{d.get('quarter', '?')} · {d.get('team', '')} · "
+                     f"{d.get('plays', 0)} plays, {d.get('yards', 0)} yds — "
+                     f"{str(d.get('result', '')).replace('_', ' ')}",
+        })
+        x += w
+    detail["drive_chart"] = chart
+    detail["ladder"] = next(
+        (lg["teams"] for lg in viperball.get_standings()
+         if lg["save_key"] == save_key), [])
     return render_template("game_viperball.html", **detail)
 
 
@@ -266,4 +330,9 @@ def game_tennis(source: str, dual_id: int):
     detail = tennis.get_game_detail(source, dual_id)
     if not detail:
         abort(404)
+    label = detail.get("league_name") if source == "gtt" else \
+        f"{detail.get('division', '').upper()} {detail.get('gender', '').title()}"
+    detail["ladder"] = next(
+        (lg["teams"] for lg in tennis.get_standings()
+         if lg["league"] == label), [])[:25]
     return render_template("game_tennis.html", **detail)

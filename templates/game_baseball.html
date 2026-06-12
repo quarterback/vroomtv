@@ -49,10 +49,48 @@
 {% endif %}
 {% endfor %}
 
+{% if duel %}
+<section>
+  <h2 class="sect">{{ game.away_name }} vs {{ game.home_name }}</h2>
+  <div class="duel">
+    {% for s in duel %}
+    <div class="duel-row">
+      <span class="duel-label">{{ s.label }}</span>
+      <div class="duel-line">
+        <span class="duel-num">{{ s.a }}</span>
+        <div class="duel-bar"><i style="width:{{ s.a_pct }}%"></i></div>
+        <span class="duel-num">{{ s.b }}</span>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="duel-key"><span class="k-away">▮ {{ game.away_name }}</span><span class="k-home">▮ {{ game.home_name }}</span></div>
+  </div>
+</section>
+{% endif %}
+
 {% if pbp %}
 <section>
   <h2 class="sect">Play-by-play</h2>
   <pre class="pbp">{{ pbp }}</pre>
+</section>
+{% endif %}
+
+{% if ladder %}
+<section>
+  <h2 class="sect">Standings</h2>
+  <div class="table-grid">
+    {% for division, teams in ladder | groupby('division') %}
+    <table class="data-table">
+      <thead><tr><th>{{ division }}</th><th class="n">W</th><th class="n">L</th></tr></thead>
+      <tbody>
+      {% for t in teams | sort(attribute='wins', reverse=true) %}
+      <tr{% if t.name in (game.home_name, game.away_name) %} class="hl"{% endif %}>
+          <td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endfor %}
+  </div>
 </section>
 {% endif %}
 {% endblock %}

@@ -256,7 +256,8 @@ def get_game_detail(save_key: str, week: int, matchup_key: str) -> dict[str, Any
                 "home_score": _num(home.get("score", 0)),
                 "away_score": _num(away.get("score", 0)),
                 "result": {"stats": fr.get("stats", {}),
-                           "player_stats": fr.get("player_stats", {})},
+                           "player_stats": fr.get("player_stats", {}),
+                           "drive_summary": fr.get("drive_summary", [])},
             }
         conn.close()
         blob = json.loads(row["data"])

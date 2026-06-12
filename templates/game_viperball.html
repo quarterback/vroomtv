@@ -17,19 +17,50 @@
 
 {% set r = result %}
 {% if r %}
-  {% set home_stats = r.get('stats', {}).get('home', {}) %}
-  {% set away_stats = r.get('stats', {}).get('away', {}) %}
-  {% if home_stats or away_stats %}
+  {% if duel %}
   <section>
-    <h2 class="sect">Team stats</h2>
+    <h2 class="sect">{{ away_name }} vs {{ home_name }}</h2>
+    <div class="duel">
+      {% for s in duel %}
+      <div class="duel-row">
+        <span class="duel-label">{{ s.label }}</span>
+        <div class="duel-line">
+          <span class="duel-num">{{ s.a }}</span>
+          <div class="duel-bar"><i style="width:{{ s.a_pct }}%"></i></div>
+          <span class="duel-num">{{ s.b }}</span>
+        </div>
+      </div>
+      {% endfor %}
+      <div class="duel-key"><span class="k-away">▮ {{ away_name }}</span><span class="k-home">▮ {{ home_name }}</span></div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if drive_chart %}
+  <section>
+    <h2 class="sect">Drives</h2>
+    <svg class="drive-chart" viewBox="0 0 100 8" preserveAspectRatio="none">
+      {% for d in drive_chart %}
+      <rect x="{{ d.x }}" y="{{ '0.5' if d.team == 'away' else '4.2' }}" width="{{ d.w }}" height="3.3"
+            fill="{{ '#16171a' if d.team == 'away' else '#cf2b2b' }}" opacity="{{ '1' if d.td else '0.35' }}">
+        <title>{{ d.title }}</title>
+      </rect>
+      {% endfor %}
+    </svg>
+    <div class="meta">Each block is a drive, sized by yards gained — solid blocks scored. {{ away_name }} on top, {{ home_name }} below. Hover for the call.</div>
+  </section>
+  {% endif %}
+
+  {% if scorers.home or scorers.away %}
+  <section>
+    <h2 class="sect">Scorers</h2>
     <div class="table-grid">
-      {% for label, stats in [(away_name, away_stats), (home_name, home_stats)] %}
+      {% for label, side in [(away_name, scorers.away), (home_name, scorers.home)] %}
       <table class="data-table">
-        <thead><tr><th>{{ label }}</th><th class="n"></th></tr></thead>
+        <thead><tr><th>{{ label }}</th><th class="n">TD</th></tr></thead>
         <tbody>
-        {% for k, v in stats.items() if v != 0 and k not in ('team', 'result') %}
-        <tr><td class="t cap">{{ k | replace('_', ' ') }}</td><td class="n">{{ v }}</td></tr>
-        {% endfor %}
+        {% for s in side %}<tr><td class="t">{{ s.name }}</td><td class="n">{{ s.tds }}</td></tr>
+        {% else %}<tr><td class="t empty-note">No scorers</td><td></td></tr>{% endfor %}
         </tbody>
       </table>
       {% endfor %}
@@ -58,5 +89,20 @@
   {% endfor %}
 {% else %}
 <div class="empty-note">Full game data not available</div>
+{% endif %}
+
+{% if ladder %}
+<section>
+  <h2 class="sect">Ladder</h2>
+  <table class="data-table full">
+    <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">T</th></tr></thead>
+    <tbody>
+    {% for t in ladder %}
+    <tr{% if t.team_name in (home_name, away_name) %} class="hl"{% endif %}>
+        <td class="t">{{ t.team_name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td><td class="n">{{ t.ties }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endif %}
 {% endblock %}

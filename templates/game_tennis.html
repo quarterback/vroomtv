@@ -47,4 +47,19 @@
 {% else %}
 <div class="empty-note">Line detail not available</div>
 {% endif %}
+
+{% if ladder %}
+<section>
+  <h2 class="sect">Ladder</h2>
+  <table class="data-table full">
+    <thead><tr><th>School</th><th class="n">W</th><th class="n">L</th></tr></thead>
+    <tbody>
+    {% for t in ladder %}
+    <tr{% if t.name in (h_label, a_label) %} class="hl"{% endif %}>
+        <td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
 {% endblock %}
