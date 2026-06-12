@@ -12,15 +12,21 @@ app = Flask(__name__)
 sync.start_timer()
 
 
-def _feed_auth_ok(sport: str) -> bool:
-    """Auth for per-sport upload/download: the sport's own sync token (the
-    same value as that sim's EXPORT_TOKEN — already shared between the
-    pair) or the hub-wide SYNC_TOKEN. Fly secrets are write-only, so sims
-    authenticate with the secret they already hold."""
+def _feed_auth_ok(sport: str, write: bool = False) -> bool:
+    """Auth for per-sport feed routes. Valid tokens: the sport's own sync
+    token (= that sim's EXPORT_TOKEN) or the hub-wide SYNC_TOKEN.
+
+    Reads (download, sync) are open when no token is configured — the data
+    is public on the sims' own sites anyway. Writes (upload) always require
+    a configured token: an open write path could poison the snapshots the
+    sims restore themselves from."""
     supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
         or request.args.get("token", "")
-    valid = [os.environ.get(f"{sport.upper()}_SYNC_TOKEN"), os.environ.get("SYNC_TOKEN")]
-    return any(t and supplied == t for t in valid)
+    valid = [t for t in (os.environ.get(f"{sport.upper()}_SYNC_TOKEN"),
+                         os.environ.get("SYNC_TOKEN")) if t]
+    if not valid:
+        return not write
+    return supplied in valid
 
 
 @app.route("/upload/<sport>", methods=["POST", "PUT"])
@@ -33,7 +39,7 @@ def upload_db(sport: str):
     """
     dest_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
                 "tennis": "TENNIS_DB"}.get(sport)
-    if not dest_env or not _feed_auth_ok(sport):
+    if not dest_env or not _feed_auth_ok(sport, write=True):
         abort(404)
     dest = os.environ.get(dest_env)
     if not dest:
@@ -76,11 +82,12 @@ def download_db(sport: str):
 
 @app.route("/sync", methods=["GET", "POST"])
 def sync_now():
-    """Manual pull of all feeds. Browser-friendly: /sync?token=<SYNC_TOKEN>."""
+    """Manual pull of all feeds. Open unless SYNC_TOKEN is configured;
+    with a token: /sync?token=<SYNC_TOKEN>."""
     token = os.environ.get("SYNC_TOKEN")
     supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
         or request.args.get("token", "")
-    if not token or supplied != token:
+    if token and supplied != token:
         abort(404)
     return jsonify({"results": sync.sync_all(), "last": sync.last_sync()["at"]})
 
