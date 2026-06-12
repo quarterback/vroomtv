@@ -270,7 +270,7 @@ def leaders():
     if vb:
         catalog.append({"sport": "Viperball", "leagues": [
             {"label": lg["league"], "kind": "viperball", "tier": lg["tier"],
-             "leaders": lg["leaders"]} for lg in vb]})
+             "boards": lg["boards"]} for lg in vb]})
     tn = tennis.get_stat_leaders()
     if tn:
         catalog.append({"sport": "Tennis", "leagues": [

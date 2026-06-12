@@ -72,16 +72,24 @@
 
 {% elif sel.kind == 'viperball' %}
 <section>
-  <h2 class="sect">{{ sel.label }} &middot; Rushing</h2>
-  <div class="table-scroll"><table class="data-table full">
-    <thead><tr><th>Player</th><th>Pos</th><th class="n">G</th><th class="n">Rush Yds</th><th class="n">TD</th><th class="n">KP Yds</th></tr></thead>
-    <tbody>
-    {% for p in sel.leaders %}
-    <tr><td class="t">{{ p.name }} <span class="meta">{{ p.team_key }}</span></td><td>{{ p.position }}</td>
-        <td class="n">{{ p.games }}</td><td class="n"><b>{{ p.rushing_yards }}</b></td><td class="n">{{ p.touchdowns }}</td><td class="n">{{ p.kick_pass_yards }}</td></tr>
+  <h2 class="sect">{{ sel.label }}</h2>
+  <div class="table-grid wide">
+    {% for board in sel.boards %}
+    <div class="table-scroll"><table class="data-table">
+      <thead><tr><th>{{ board.title }}</th><th>Pos</th><th class="n">G</th>
+        {% for label, key in board.cols %}<th class="n">{{ label }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for p in board.rows %}
+      <tr><td class="t">{{ p.name }} <span class="meta">{{ p.team_key }}</span></td>
+          <td>{{ p.position }}</td><td class="n">{{ p.games }}</td>
+          {% for label, key in board.cols %}
+          <td class="n">{% if key == board.sort %}<b>{{ p.get(key, 0) }}</b>{% else %}{{ p.get(key, 0) }}{% endif %}</td>
+          {% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
     {% endfor %}
-    </tbody>
-  </table></div>
+  </div>
 </section>
 
 {% elif sel.kind == 'tennis_portal' %}
