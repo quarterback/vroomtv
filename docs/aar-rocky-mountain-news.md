@@ -276,3 +276,238 @@ of the sync.
 - **Still not validated**: the full production loop with all three
   portals lit up. Last known production state had viperball college data
   flowing via the raw DB; portal flips on with this branch's merge.
+
+---
+
+## Phase 3 — responsive design, performance, and unified chrome
+
+This phase pushed the Rocky from a working hub to one that actually
+holds up on a phone, against the operator's full production load, and
+reads as a single designed site rather than five pages welded together.
+
+### Coverage: every layer's leaderboards
+Phase 2 had `get_stat_leaders` returning a single board per league
+(rushing for viperball, batting-average + ERA for baseball). The
+operator pointed out — correctly — that the sim already produces ten
+times that data; the adapter was the bottleneck. So:
+
+- **Viperball** now exposes six boards per league: Rushing,
+  Kick Passing, Laterals, Defense (Tkl / TFL / Sacks), Kicking (drop
+  kicks), and All-purpose yards. The college accumulator was extended
+  to carry the matching counting stats from the box-score blobs, and
+  the pro and college adapters share one `_build_boards` helper.
+- **Baseball** went from two boards to eight: Batting Average, Home
+  Runs, RBI, Stolen Bases, ERA, Strikeouts, plus Advanced Batting
+  (wOBA / OBP / SLG / K% / BB%) and Advanced Pitching (WHIP / K9 / BB9)
+  when the portal feed is synced. Qualification floors scale with
+  games played so the boards aren't empty in the first week of a
+  season.
+- **Tennis** kept Singles Wins for the basic adapter and gained Player
+  Power (STR) + Top Junior Prospects when the data portal is live.
+
+### Navigation: sport → league → category, one board per view
+The leaders page used to dump every available board on one long-scroll
+page. It now drills:
+
+1. Sport dropdown
+2. League dropdown (tier-grouped via `<optgroup>`)
+3. Category chips (one chip per board, active one filled black)
+
+Each level is URL-shareable
+(`/leaders?sport=Baseball&league=O27+League&board=Home+runs`), and the
+template is one generic board renderer — adapters emit
+`{title, sort, cols([label, key, fmt]), rows}` and the page knows
+nothing sport-specific. Tennis's portal boards plug into the same
+chrome with zero template work.
+
+### Match-page completion: tennis duel bars, score worm, baseball extras
+
+- **Tennis match pages** got duel bars (lines won, sets won, games won)
+  aggregated from each line's set scores — built from `lines_json`,
+  no sim change needed.
+- **Viperball score worm** ships as inline SVG showing relative lead
+  margin over the course of the game. The sim got a five-line change
+  to stamp `home_score_after` / `away_score_after` onto each drive
+  summary; the hub draws the curve, and falls back to *inferring*
+  points from drive results so worms render on box scores from before
+  the sim redeploy.
+- **Baseball college / youth / World Cup detail pages** at
+  `/game/baseball/<tier>/<id>`. The adapter knows each tier's per-game
+  table schema (`college_batter_stats`, `game_wc_pitcher_stats`,
+  `game_youth_pitcher_stats`) and normalizes column names so the pro
+  box-score template renders all three unchanged.
+- **Multi-sport news**: `newsroom.py` gained one-sentence ledes
+  alongside placeholder headlines (margin-scaled drama beats: "slim
+  margins", "comfortable cushion", "runaway", with playoff/week tag
+  prefixes). The `/news` page now stacks a per-sport wire section
+  under any real gazette articles.
+- **Sport-aware pixel art**: `/art/<sport>/<seed>.svg` draws a diamond
+  for baseball, a court with net + ball for tennis, gridiron stripes
+  for viperball, over a seeded noise field. Replaces the abstract
+  mirrored sprite as the default; sprite remains the fallback for
+  unknown sports.
+
+### Conference drill-down
+Standings and scores gained a third drill-down level when conference
+data exists:
+
+- **Tennis** derives `school → conference` by walking the schedule's
+  `is_conf=1` duals — works *before* conference play has been played,
+  so the dropdown is populated from week one.
+- **Viperball college** picks up conference from the stats portal's
+  KenPom rows when a portal session is live.
+- Found and fixed a real bug while wiring this: viperball's stats
+  router mounts under `/stats`, so the portal URL was silently fetching
+  the NiceGUI shell — `VIPERBALL_PORTAL_URL` now correctly points at
+  `https://viperball.xyz/stats`.
+
+### Performance: the lag the operator could feel
+
+The 30-minute sync timer was working, but every visitor right after a
+sync was paying for a full reparse. Production tennis is 120MB+ and
+viperball college is hundreds of ~200KB JSON blobs — on a single
+gunicorn worker, every other request waited behind whoever triggered
+the rebuild. Three fixes:
+
+- **Stale-while-revalidate** on the two expensive caches: when the DB
+  changes, serve the previous result immediately and rebuild in a
+  background thread. Measured: ~80ms on the request right after a
+  data change versus a full reparse. Only a truly cold process
+  (no previous result, e.g. fresh boot) builds inline, and the boot
+  sync warms that before traffic in practice.
+- **Portal-skip**: the tennis DB-derived leader aggregation (the
+  single most expensive parse on the box) is now skipped entirely when
+  the portal covers the NCAA divisions *and* no GTT league exists to
+  need it. Most production cycles fall in that case.
+- **Off-thread cache warming** after each sync so `/sync` responds the
+  moment downloads finish.
+
+Memory went 256MB → 512MB because parsing a 120MB+ DB in 256MB was
+swap territory; that's $1.50/month more.
+
+### Bandwidth: slim tennis export
+
+Profiling the live tennis DB showed `world_roster` was 81MB (sim-
+internal player state) of a 112MB file. The Rocky never reads it. So:
+`/export/db` now ships only the tables the hub actually queries
+(`seasons`, `duals`, `gtt_*`) via SQLite `ATTACH` + per-table copy.
+
+- **112MB → 22.5MB (an 80% cut)**, before the ETag layer even runs.
+- `?full=1` keeps the complete backup behavior for any operator use.
+- Verified end-to-end against the slim file: all six divisions render
+  standings, 98 derived conferences, recent scores, and match pages
+  with full line scores — nothing the Rocky surfaces lives in the
+  dropped tables.
+
+### Responsive design (first real mobile pass)
+
+Two real bugs surfaced on an actual phone screenshot the operator sent:
+the two leader boards were overlapping each other (the columns added
+up to more than each grid cell's width, and tables overflow their
+containers), and ~30% of the page was wasted whitespace on the right.
+Plus the mobile experience had never been tested at all. Fixes:
+
+- Tables now live inside `.table-scroll` wrappers (`overflow-x: auto`)
+  with a fade-shadow on the right edge to signal swipeability.
+- The two-column `.table-grid.wide` only kicks in above 1100px; below
+  that, dense stat boards stack vertically and get the full content
+  width.
+- Container went 1180px → 1280px, table `max-width: 760px` removed —
+  desktop tables now use the room they have.
+- Full mobile pass (< 600px): nav links scroll horizontally,
+  page titles and pill labels shrink, matchup headers stack
+  vertically, scoreboard strip wraps to two rows, body padding
+  tightens, tables scroll instead of clipping.
+- The site was screenshotted in headless Chromium at 1380px, 820px,
+  and 390px on the leaders, standings, scores, and front pages
+  before shipping.
+
+### Unified design chrome (the consistency pass)
+
+The pages had drifted: standings was a cramped 3-column grid of mini
+tables, leaders had bare dropdowns, scores had no tabs. With ESPN /
+NCAAW / NCAAF reference shots in hand, every browseable page now
+shares one chrome:
+
+- **Tier tabs** (`Pro Baseball / College Baseball`) directly below the
+  page title, with a red underline on the active one, matching ESPN's
+  FBS / FCS / Division II / Division III pattern. Only render when a
+  sport actually has multiple tiers — no empty tabs.
+- **Labeled pill filters** (`SPORT / LEAGUE / CONFERENCE` with tiny
+  uppercase labels above each pill) replacing the bare dropdowns.
+- **Section-stacked tables** replacing grids: each conference (or
+  division) becomes its own full-width section with the conference
+  name as a bold red-tagged header. NCAAW-shaped, not Tetris.
+- One shared `page_chrome` macro means future tweaks land in one
+  place.
+
+## Lessons (phase 3)
+
+- **The adapter was hiding the data.** I shipped phase 2 assuming
+  "viperball leaders" meant rushing because that's what my first
+  adapter returned. Looking at the box-score blob showed kick passes,
+  laterals, defensive snaps, drop kicks — all already there. Same for
+  baseball. Lesson: when a user says "is this all there is?" the
+  default answer is "no, my adapter dropped it."
+- **A long scroll is a UX bug.** When the leaders page had six
+  viperball boards rendered as a vertical list, the operator's first
+  reaction was "this is a wall." Three-level drill-down with chips
+  fixed it in one pass and turned out to be a generalizable pattern.
+- **Lag isn't always a sync problem.** I'd already cut sync bandwidth
+  by 80% via ETags before the operator first reported lag — the
+  remaining latency was the *parse* on the visitor's thread, not the
+  download. Stale-while-revalidate was the right tool, and ~80ms
+  proved the diagnosis.
+- **Sim DBs ship more than the hub needs.** Profiling the tennis DB
+  with `SUM(pgsize) GROUP BY name` named the culprit in five seconds.
+  `world_roster` was 80% of every download and the Rocky never read
+  it. The slim export was twenty minutes of work to do once and saves
+  90MB per sync forever.
+- **Match your screenshots, not your imagination.** I'd built the
+  Rocky's chrome by intuition until the operator sent ESPN / NCAAW
+  reference shots side-by-side with the live site. The mismatch (mini-
+  table grid vs full-width sections; bare dropdowns vs labeled pills;
+  no tabs at all vs Pro/College tabs) was instantly visible and
+  instantly fixable once I was comparing the right two things.
+- **Public URLs are config, not secrets.** I drifted *again* into
+  "set `*_PORTAL_URL` as a secret on vroomtv" and the operator caught
+  it again. Burning this into the AAR for the third time so future-me
+  reads it.
+
+## What was NOT done (still backlog)
+
+- **Per-game advanced stats.** Portal pulls inform aggregate leaders
+  and standings; individual match pages still read the raw DB. Worth
+  doing if you want viperball's adjusted efficiency on a single
+  contest's page.
+- **Real news for non-baseball sports.** Baseball gazette still the
+  only source of actual articles; viperball/tennis lean on the wire
+  generator's mechanical recaps.
+- **News stories from the wire generator could use sim flavor.** The
+  current "X took down Y in a one-possession finish" is generic. It
+  could pull in the top scorer, weather, or rivalry context for
+  viperball; the singles upset for tennis.
+
+## Validation (phase 3)
+
+- The whole phase was built and verified against the operator's actual
+  production databases pulled from the live feeds — 178 CVL games,
+  six tennis divisions × 366+ schools, 114 baseball games.
+- Mobile rendered in headless Chromium at 390×800; desktop at 1380px;
+  tablet at 820px. Both leader-board overlap and scoreboard strip
+  wrapping were verified at each width.
+- Stale-while-revalidate timing measured directly: full pages render
+  in ~50ms warm, ~80ms after touching both production DBs (simulated
+  sync), versus seconds for cold parses.
+- Slim tennis export verified against the same adapter: 22.5MB file
+  served all six divisions, 98 conferences, line scores, and match
+  pages with zero feature loss.
+- Tier-tab macro debugged through a real Jinja scoping issue (list
+  append doesn't propagate across loop boundaries; namespace pattern
+  was needed) and confirmed showing Pro Baseball / College Baseball
+  tabs on `/scores?sport=Baseball` with the active one underlined.
+- ESPN-style reference shots compared side-by-side with the new chrome
+  before each commit.
+- **Still not validated**: the full production loop on Fly with the
+  slim tennis export and unified chrome merged. The operator was about
+  to redeploy when phase 3 wrapped.

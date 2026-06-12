@@ -1,41 +1,47 @@
 {% extends "base.html" %}
-{% from "_filters.html" import filter_bar %}
+{% from "_filters.html" import page_chrome %}
 {% block title %}Standings — Rocky Mountain News{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1 class="page-title">Standings</h1>
-  {{ filter_bar(catalog, entry, sel, 'standings', confs, sel_conf) }}
-</div>
+{{ page_chrome(catalog, entry, sel, 'standings', 'Standings', confs, sel_conf) }}
 
 {% if not sel %}
 <div class="empty-note">No standings yet — the sims haven't filed any results.</div>
 
 {% elif sel.kind == 'baseball' %}
-<section>
-  <h2 class="sect">{{ sel.label }}</h2>
-  <div class="table-grid">
-    {% for league, lteams in sel.rows | groupby('league') %}
-    {% for division, teams in lteams | groupby('division') %}
-    <div class="table-scroll"><table class="data-table">
-      <thead><tr><th>{{ division }}</th><th class="n">W</th><th class="n">L</th><th class="n">Pct</th></tr></thead>
+{# Stack one full-width table per league/division (no grids). ESPN's
+   MLB standings pattern: section header, then a single wide table. #}
+<div class="stack">
+  {% for league, lteams in sel.rows | groupby('league') %}
+  {% for division, teams in lteams | groupby('division') %}
+  <section>
+    <h2 class="sect">{{ league }} &middot; {{ division }}</h2>
+    <div class="table-scroll"><table class="data-table full">
+      <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">Pct</th><th class="n">GB</th></tr></thead>
       <tbody>
-      {% for t in teams | sort(attribute='wins', reverse=true) %}
-      <tr><td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td>
-          <td class="n">{{ '%.3f' | format(t.wins / (t.wins + t.losses) if (t.wins + t.losses) else 0) }}</td></tr>
+      {% set sorted_teams = teams | sort(attribute='wins', reverse=true) | list %}
+      {% set leader_w = sorted_teams[0].wins if sorted_teams else 0 %}
+      {% set leader_l = sorted_teams[0].losses if sorted_teams else 0 %}
+      {% for t in sorted_teams %}
+      {% set games_back = ((leader_w - t.wins) + (t.losses - leader_l)) / 2 %}
+      <tr><td class="t">{{ t.name }}</td>
+          <td class="n">{{ t.wins }}</td>
+          <td class="n">{{ t.losses }}</td>
+          <td class="n">{{ '%.3f' | format(t.wins / (t.wins + t.losses) if (t.wins + t.losses) else 0) }}</td>
+          <td class="n">{% if loop.first %}&mdash;{% else %}{{ '%g' | format(games_back) }}{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table></div>
-    {% endfor %}
-    {% endfor %}
-  </div>
-</section>
+  </section>
+  {% endfor %}
+  {% endfor %}
+</div>
 
 {% elif sel.kind == 'viperball' %}
 {% set kp = sel.teams and sel.teams[0].get('adj_o') is not none %}
 <section>
   <h2 class="sect">{{ sel.label }}{% if kp %} &middot; KenPom{% endif %}</h2>
-  {% if kp %}
   <div class="table-scroll"><table class="data-table full">
+    {% if kp %}
     <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">AdjO</th><th class="n">AdjD</th><th class="n">EM</th><th class="n">Tempo</th><th class="n">Luck</th></tr></thead>
     <tbody>
     {% for t in sel.teams | sort(attribute='em', reverse=true) %}
@@ -47,19 +53,16 @@
         <td class="n">{{ '%.1f' | format(t.tempo or 0) }}</td>
         <td class="n">{{ '%+.3f' | format(t.luck or 0) }}</td></tr>
     {% endfor %}
-    </tbody>
-  </table></div>
-  {% else %}
-  <div class="table-scroll"><table class="data-table full">
+    {% else %}
     <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">T</th><th class="n">Strk</th></tr></thead>
     <tbody>
     {% for t in sel.teams %}
     <tr><td class="t">{{ t.team_name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td><td class="n">{{ t.ties }}</td>
         <td class="n">{% if t.streak %}{{ t.streak_type }}{{ t.streak }}{% else %}&mdash;{% endif %}</td></tr>
     {% endfor %}
+    {% endif %}
     </tbody>
   </table></div>
-  {% endif %}
 </section>
 
 {% elif sel.kind == 'tennis_portal' %}
@@ -76,7 +79,7 @@
         <td class="n"><b>{{ '%.1f' | format(r.pi or 0) }}</b></td>
         <td class="n">{{ '%.1f' | format(r.apr or 0) }}</td>
         <td class="n">{{ '%.1f' | format(r.fqi or 0) }}</td>
-        <td class="n">{% if r.move > 0 %}<span style="color:#0a7a3b">▲ {{ r.move }}</span>{% elif r.move < 0 %}<span style="color:#cf2b2b">▼ {{ -r.move }}</span>{% else %}&mdash;{% endif %}</td></tr>
+        <td class="n">{% if r.move > 0 %}<span class="up">▲ {{ r.move }}</span>{% elif r.move < 0 %}<span class="down">▼ {{ -r.move }}</span>{% else %}&mdash;{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table></div>
@@ -96,16 +99,39 @@
 {% endif %}
 
 {% elif sel.kind == 'tennis' %}
+{# When "All conferences" is selected, group by conference into stacked
+   sections. When one conference is picked, show that single table. #}
+{% if sel_conf %}
 <section>
-  <h2 class="sect">{{ sel.label }}</h2>
+  <h2 class="sect">{{ sel_conf }}</h2>
   <div class="table-scroll"><table class="data-table full">
-    <thead><tr><th>School</th><th class="n">W</th><th class="n">L</th></tr></thead>
+    <thead><tr><th>School</th><th class="n">W</th><th class="n">L</th><th class="n">Pct</th></tr></thead>
     <tbody>
     {% for t in sel.teams %}
-    <tr><td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
+    <tr><td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td>
+        <td class="n">{{ '%.3f' | format(t.wins / (t.wins + t.losses) if (t.wins + t.losses) else 0) }}</td></tr>
     {% endfor %}
     </tbody>
   </table></div>
 </section>
+{% else %}
+{% set grouped = sel.teams | groupby('conf') %}
+<div class="stack">
+  {% for conf, teams in grouped %}
+  <section>
+    <h2 class="sect">{{ conf or 'Independents' }}</h2>
+    <div class="table-scroll"><table class="data-table full">
+      <thead><tr><th>School</th><th class="n">W</th><th class="n">L</th><th class="n">Pct</th></tr></thead>
+      <tbody>
+      {% for t in teams | sort(attribute='wins', reverse=true) %}
+      <tr><td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td>
+          <td class="n">{{ '%.3f' | format(t.wins / (t.wins + t.losses) if (t.wins + t.losses) else 0) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}

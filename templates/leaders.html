@@ -1,11 +1,8 @@
 {% extends "base.html" %}
-{% from "_filters.html" import filter_bar %}
+{% from "_filters.html" import page_chrome %}
 {% block title %}Leaders — Rocky Mountain News{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1 class="page-title">Leaders</h1>
-  {{ filter_bar(catalog, entry, sel, 'leaders') }}
-</div>
+{{ page_chrome(catalog, entry, sel, 'leaders', 'Leaders') }}
 
 {% if not sel or not board %}
 <div class="empty-note">No leaders yet — the sims haven't filed any results.</div>

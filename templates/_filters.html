@@ -1,32 +1,77 @@
-{% macro filter_bar(catalog, entry, sel, endpoint, confs=None, sel_conf='') %}
-<form class="filter-bar" method="get" action="{{ url_for(endpoint) }}">
-  <select name="sport" aria-label="Sport" onchange="this.form.league.selectedIndex=-1;{% if confs is not none %}this.form.conf.selectedIndex=-1;{% endif %}this.form.submit()">
-    {% for c in catalog %}
-    <option value="{{ c.sport }}"{% if entry and c.sport == entry.sport %} selected{% endif %}>{{ c.sport }}</option>
-    {% endfor %}
-  </select>
-  <select name="league" aria-label="League" onchange="{% if confs is not none %}this.form.conf.selectedIndex=-1;{% endif %}this.form.submit()">
-    {% if entry %}{% for tier in ['Pro', 'College', 'International'] %}
-    {% set leagues = entry.leagues | selectattr('tier', 'equalto', tier) | list %}
-    {% if leagues %}
-    <optgroup label="{{ tier }} {{ entry.sport }}">
-      {% for l in leagues %}
-      <option value="{{ l.label }}"{% if sel and l.label == sel.label %} selected{% endif %}>{{ l.label }}</option>
+{# Shared design system: tier tabs (Pro / College / International) + pill
+   filters (sport / league / conference) + section-header tables. Every page
+   uses the same chrome so the Rocky reads as one site, not five. #}
+
+{% macro tier_tabs(catalog, entry, sel, endpoint) %}
+{# Jinja scoping requires namespace for list mutation inside a loop. #}
+{% set ns = namespace(tiers=[]) %}
+{% if entry %}{% for tier in ['Pro', 'College', 'International'] %}
+  {% if entry.leagues | selectattr('tier', 'equalto', tier) | list %}
+    {% set ns.tiers = ns.tiers + [tier] %}
+  {% endif %}
+{% endfor %}{% endif %}
+{% if ns.tiers | length > 1 %}
+<div class="tier-tabs">
+  {% for tier in ns.tiers %}
+  {% set first = (entry.leagues | selectattr('tier', 'equalto', tier) | list)[0] %}
+  <a class="tier-tab{% if sel and sel.tier == tier %} active{% endif %}"
+     href="{{ url_for(endpoint, sport=entry.sport, league=first.label) }}">{{ tier }} {{ entry.sport }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro pill_filters(catalog, entry, sel, endpoint, confs=None, sel_conf='') %}
+<form class="pill-filters" method="get" action="{{ url_for(endpoint) }}">
+  <label class="pill-select">
+    <span>Sport</span>
+    <select name="sport" onchange="this.form.league.selectedIndex=-1;{% if confs is not none %}this.form.conf.selectedIndex=-1;{% endif %}this.form.submit()">
+      {% for c in catalog %}
+      <option value="{{ c.sport }}"{% if entry and c.sport == entry.sport %} selected{% endif %}>{{ c.sport }}</option>
       {% endfor %}
-    </optgroup>
-    {% endif %}
-    {% endfor %}{% endif %}
-  </select>
+    </select>
+  </label>
+  <label class="pill-select">
+    <span>League</span>
+    <select name="league" onchange="{% if confs is not none %}this.form.conf.selectedIndex=-1;{% endif %}this.form.submit()">
+      {% if entry %}{% for tier in ['Pro', 'College', 'International'] %}
+      {% set leagues = entry.leagues | selectattr('tier', 'equalto', tier) | list %}
+      {% if leagues %}
+      <optgroup label="{{ tier }} {{ entry.sport }}">
+        {% for l in leagues %}
+        <option value="{{ l.label }}"{% if sel and l.label == sel.label %} selected{% endif %}>{{ l.label }}</option>
+        {% endfor %}
+      </optgroup>
+      {% endif %}
+      {% endfor %}{% endif %}
+    </select>
+  </label>
   {% if confs %}
-  <select name="conf" aria-label="Conference" onchange="this.form.submit()">
-    <option value="">All conferences</option>
-    {% for c in confs %}
-    <option value="{{ c }}"{% if c == sel_conf %} selected{% endif %}>{{ c }}</option>
-    {% endfor %}
-  </select>
+  <label class="pill-select">
+    <span>Conference</span>
+    <select name="conf" onchange="this.form.submit()">
+      <option value="">All conferences</option>
+      {% for c in confs %}
+      <option value="{{ c }}"{% if c == sel_conf %} selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </label>
   {% endif %}
   <noscript><button type="submit">Go</button></noscript>
 </form>
+{% endmacro %}
+
+{% macro page_chrome(catalog, entry, sel, endpoint, title, confs=None, sel_conf='') %}
+<div class="page-head">
+  <h1 class="page-title">{{ title }}</h1>
+  {{ pill_filters(catalog, entry, sel, endpoint, confs, sel_conf) }}
+</div>
+{{ tier_tabs(catalog, entry, sel, endpoint) }}
+{% endmacro %}
+
+{# Back-compat: older templates reference filter_bar(...) #}
+{% macro filter_bar(catalog, entry, sel, endpoint, confs=None, sel_conf='') %}
+{{ pill_filters(catalog, entry, sel, endpoint, confs, sel_conf) }}
 {% endmacro %}
 
 {% macro scorecard(url, away, home, ascore, hscore, note='') %}

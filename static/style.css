@@ -150,9 +150,13 @@ img { display: block; max-width: 100%; }
   .gb-side b { font-size: 24px; }
   .gb-team { font-size: 14px; }
   .page-title { font-size: 24px; }
-  .page-head { gap: 10px; }
-  .filter-bar { width: 100%; flex-wrap: wrap; }
-  .filter-bar select { flex: 1; min-width: 130px; }
+  .page-head { gap: 12px; align-items: flex-start; }
+  .pill-filters, .filter-bar { width: 100%; gap: 8px; }
+  .pill-select { flex: 1 1 calc(50% - 4px); }
+  .pill-select > span { font-size: 9.5px; }
+  .pill-select select, .filter-bar select { width: 100%; max-width: none; font-size: 12px; }
+  .tier-tabs { gap: 18px; margin-bottom: 18px; }
+  .tier-tab { font-size: 12px; padding: 10px 0 9px; }
   .data-table { font-size: 12px; }
   .data-table th, .data-table td { padding: 6px 8px; }
   .matchup { flex-direction: column; align-items: stretch; gap: 8px; }
@@ -161,18 +165,55 @@ img { display: block; max-width: 100%; }
   .strip-filter { width: 100%; border-right: none; border-bottom: 1px solid var(--rule); padding: 6px 12px; }
 }
 .page-title { font: 800 30px var(--serif); }
-.page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
-.filter-bar { display: flex; gap: 8px; }
-.filter-bar select {
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+
+/* ESPN-style pill filter row: small label above each select. */
+.pill-filters, .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+.pill-select { display: flex; flex-direction: column; gap: 3px; }
+.pill-select > span {
+  font: 700 10px var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-left: 12px;
+}
+.pill-select select, .filter-bar select {
   font: 600 13px var(--sans);
   color: var(--ink);
   border: 1px solid var(--rule);
   border-radius: 16px;
-  padding: 7px 12px;
+  padding: 7px 28px 7px 12px;
   background: var(--paper);
   cursor: pointer;
   max-width: 280px;
 }
+.pill-select select:focus, .filter-bar select:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+/* Tier tabs row sits below page-head, above content — ESPN's
+   FBS/FCS/Division II/Division III tab pattern. */
+.tier-tabs {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tier-tabs::-webkit-scrollbar { display: none; }
+.tier-tab {
+  font: 800 13px var(--sans);
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 12px 0 11px;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+.tier-tab:hover { color: var(--ink); }
+.tier-tab.active { color: var(--ink); border-bottom-color: var(--red); }
+
+.stack { display: flex; flex-direction: column; gap: 28px; }
+.up { color: #0a7a3b; font-weight: 700; }
+.down { color: var(--red); font-weight: 700; }
 section { margin-bottom: 36px; }
 
 /* ── Lead story ────────────────────────────────────────────────────── */

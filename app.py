@@ -203,7 +203,9 @@ def article(slate_date: str, voice_id: str):
 
 def _pick(catalog: list[dict]) -> tuple:
     """Resolve ?sport=&league= against a [{sport, leagues:[{label,...}]}]
-    catalog: ESPN-style — you always look at exactly one league."""
+    catalog: ESPN-style — you always look at exactly one league. The
+    selected league carries a `tier` so the template can highlight the
+    active tier tab."""
     sport = request.args.get("sport", "")
     entry = next((c for c in catalog if c["sport"] == sport),
                  catalog[0] if catalog else None)
