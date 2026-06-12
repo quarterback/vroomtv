@@ -77,13 +77,13 @@
     <h2 class="sect">Scorers</h2>
     <div class="table-grid">
       {% for label, side in [(away_name, scorers.away), (home_name, scorers.home)] %}
-      <table class="data-table">
+      <div class="table-scroll"><table class="data-table">
         <thead><tr><th>{{ label }}</th><th class="n">TD</th></tr></thead>
         <tbody>
         {% for s in side %}<tr><td class="t">{{ s.name }}</td><td class="n">{{ s.tds }}</td></tr>
         {% else %}<tr><td class="t empty-note">No scorers</td><td></td></tr>{% endfor %}
         </tbody>
-      </table>
+      </table></div>
       {% endfor %}
     </div>
   </section>
@@ -92,7 +92,7 @@
   {% if players %}
   <section>
     <h2 class="sect">{{ label }}</h2>
-    <table class="data-table full">
+    <div class="table-scroll"><table class="data-table full">
       <thead><tr><th>Player</th><th>Pos</th><th class="n">Rush</th><th class="n">TD</th><th class="n">Lat</th><th class="n">KP</th><th class="n">Tkl</th></tr></thead>
       <tbody>
       {% for p in players %}
@@ -104,7 +104,7 @@
           <td class="n">{{ p.get('tackles', 0) }}</td></tr>
       {% endfor %}
       </tbody>
-    </table>
+    </table></div>
   </section>
   {% endif %}
   {% endfor %}
@@ -115,7 +115,7 @@
 {% if ladder %}
 <section>
   <h2 class="sect">Ladder</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">T</th></tr></thead>
     <tbody>
     {% for t in ladder %}
@@ -123,7 +123,7 @@
         <td class="t">{{ t.team_name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td><td class="n">{{ t.ties }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endif %}
 {% endblock %}

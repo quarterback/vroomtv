@@ -132,11 +132,33 @@ img { display: block; max-width: 100%; }
 .nav-date { font-size: 12px; color: #8c8d92; white-space: nowrap; }
 
 /* ── Layout ────────────────────────────────────────────────────────── */
-.container { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+.container { max-width: 1280px; margin: 0 auto; padding: 28px 20px 60px; }
 .front { display: grid; grid-template-columns: 1fr 340px; gap: 36px; }
 @media (max-width: 900px) {
   .front { grid-template-columns: 1fr; }
-  .brand-name, .nav-date { display: none; }
+  .nav-date { display: none; }
+}
+@media (max-width: 600px) {
+  .container { padding: 18px 14px 50px; }
+  .brand-name { font-size: 16px; }
+  .topnav { gap: 14px; padding: 0 14px; height: 48px; }
+  .nav-links { gap: 14px; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { font-size: 11.5px; line-height: 48px; }
+  .lead-story h1 { font-size: 26px; }
+  .gb-score { gap: 14px; padding: 12px 10px; flex-wrap: wrap; }
+  .gb-side b { font-size: 24px; }
+  .gb-team { font-size: 14px; }
+  .page-title { font-size: 24px; }
+  .page-head { gap: 10px; }
+  .filter-bar { width: 100%; flex-wrap: wrap; }
+  .filter-bar select { flex: 1; min-width: 130px; }
+  .data-table { font-size: 12px; }
+  .data-table th, .data-table td { padding: 6px 8px; }
+  .matchup { flex-direction: column; align-items: stretch; gap: 8px; }
+  .matchup .side { justify-content: space-between; }
+  .strip { height: auto; flex-wrap: wrap; }
+  .strip-filter { width: 100%; border-right: none; border-bottom: 1px solid var(--rule); padding: 6px 12px; }
 }
 .page-title { font: 800 30px var(--serif); }
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -226,10 +248,32 @@ section { margin-bottom: 36px; }
 .brief-text { font: 600 13px/1.35 var(--sans); }
 
 /* ── Tables ────────────────────────────────────────────────────────── */
-.table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; align-items: start; }
-.table-grid.wide { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+/* Default: tables stack so each gets the full content width. The .wide
+   variant goes side-by-side from 1100px up — below that the columns
+   would crowd. Each cell wraps its table in a horizontal scroll so the
+   dense stat boards don't squeeze. */
+.table-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+@media (min-width: 760px) {
+  .table-grid { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+}
+.table-grid.wide { grid-template-columns: 1fr; }
+@media (min-width: 1100px) {
+  .table-grid.wide { grid-template-columns: 1fr 1fr; }
+}
+.table-grid > * { min-width: 0; }
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 6px;
+  background:
+    linear-gradient(to right, var(--paper) 0, var(--paper) 100%) right center / 12px 100% no-repeat,
+    linear-gradient(to right, rgba(0,0,0,0.08), transparent) right center / 12px 100% no-repeat;
+  background-attachment: local, scroll;
+}
+.table-scroll .data-table { min-width: 100%; width: max-content; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
-.data-table.full { max-width: 760px; }
+.data-table.full { width: 100%; max-width: none; }
+.data-table th, .data-table td { white-space: nowrap; }
 .data-table th {
   font: 700 10.5px var(--sans);
   letter-spacing: 0.07em;

@@ -15,7 +15,7 @@
 <section>
   <h2 class="sect">{{ sel.label }}{% if advanced %} &middot; Advanced{% endif %}</h2>
   <div class="table-grid wide">
-    <table class="data-table">
+    <div class="table-scroll"><table class="data-table">
       {% if advanced %}
       <thead><tr><th>Batting</th><th class="n">PA</th><th class="n">AVG</th><th class="n">OBP</th><th class="n">SLG</th><th class="n">wOBA</th><th class="n">K%</th><th class="n">BB%</th></tr></thead>
       <tbody>
@@ -41,8 +41,8 @@
       {% endfor %}
       </tbody>
       {% endif %}
-    </table>
-    <table class="data-table">
+    </table></div>
+    <div class="table-scroll"><table class="data-table">
       {% if advanced %}
       <thead><tr><th>Pitching</th><th class="n">IP</th><th class="n">ERA</th><th class="n">WHIP</th><th class="n">K/9</th><th class="n">BB/9</th></tr></thead>
       <tbody>
@@ -66,14 +66,14 @@
       {% endfor %}
       </tbody>
       {% endif %}
-    </table>
+    </table></div>
   </div>
 </section>
 
 {% elif sel.kind == 'viperball' %}
 <section>
   <h2 class="sect">{{ sel.label }} &middot; Rushing</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Player</th><th>Pos</th><th class="n">G</th><th class="n">Rush Yds</th><th class="n">TD</th><th class="n">KP Yds</th></tr></thead>
     <tbody>
     {% for p in sel.leaders %}
@@ -81,13 +81,13 @@
         <td class="n">{{ p.games }}</td><td class="n"><b>{{ p.rushing_yards }}</b></td><td class="n">{{ p.touchdowns }}</td><td class="n">{{ p.kick_pass_yards }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 
 {% elif sel.kind == 'tennis_portal' %}
 <section>
   <h2 class="sect">{{ sel.label }} &middot; Player Power (STR)</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Player</th><th>School</th><th>Class</th><th class="n">W</th><th class="n">L</th><th class="n">STR</th><th class="n">Rel</th></tr></thead>
     <tbody>
     {% for p in sel.player_leaders %}
@@ -97,12 +97,12 @@
         <td class="n">{{ '%.2f' | format(p.rel or 0) }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% if sel.top_prospects %}
 <section>
   <h2 class="sect">{{ sel.label }} &middot; Top Junior Prospects ({{ sel.top_prospects[0].grad_year if sel.top_prospects else '' }})</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Rk</th><th>Player</th><th>Country</th><th class="n">Stars</th><th class="n">Pts</th><th class="n">STR</th></tr></thead>
     <tbody>
     {% for p in sel.top_prospects %}
@@ -112,14 +112,14 @@
         <td class="n"><b>{{ '%.1f' | format(p.str or 0) }}</b></td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endif %}
 
 {% elif sel.kind == 'tennis' %}
 <section>
   <h2 class="sect">{{ sel.label }} &middot; Singles Wins (min. 3)</h2>
-  <table class="data-table full">
+  <div class="table-scroll"><table class="data-table full">
     <thead><tr><th>Player</th><th class="n">M</th><th class="n">W</th><th class="n">Pct</th></tr></thead>
     <tbody>
     {% for p in sel.leaders %}
@@ -127,7 +127,7 @@
         <td class="n">{{ p.matches }}</td><td class="n"><b>{{ p.wins }}</b></td><td class="n">{{ '%.3f' | format(p.win_pct) }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endif %}
 {% endblock %}
