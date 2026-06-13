@@ -4,7 +4,7 @@
 #
 
 app = 'vroomtv'
-primary_region = 'sjc'
+primary_region = 'ams'
 
 [build]
   dockerfile = 'Dockerfile'
@@ -37,7 +37,7 @@ primary_region = 'sjc'
 
 # picks.db must survive restarts — mount a persistent volume.
 # One-time setup before first deploy:
-#   fly volumes create picks_data --region sjc --size 1 --app vroomtv
+#   fly volumes create picks_data --region ams --size 1 --app vroomtv
 [[mounts]]
   source      = 'picks_data'
   destination = '/picks_data'
