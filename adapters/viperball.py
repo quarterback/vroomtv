@@ -50,6 +50,26 @@ def _load_leagues(conn: sqlite3.Connection) -> list[dict]:
     return leagues
 
 
+def _load_wvl_leagues(conn: sqlite3.Connection) -> list[dict]:
+    """WVL career leagues — one row per league, single blob carrying the
+    full season (`standings`, `results`, `cards` with career_seasons).
+    Save type added when viperball rebuilt WVL as a CVL-graduate career
+    league this season."""
+    rows = conn.execute(
+        "SELECT save_key, label, data FROM saves WHERE save_type='wvl_career_league' ORDER BY updated_at DESC"
+    ).fetchall()
+    leagues = []
+    for row in rows:
+        try:
+            blob = json.loads(row["data"])
+        except (json.JSONDecodeError, TypeError):
+            continue
+        leagues.append({"save_key": row["save_key"],
+                        "label": row["label"] or f"WVL Y{blob.get('year', '')}".rstrip(),
+                        "blob": blob})
+    return leagues
+
+
 _BOX_KEY = re.compile(r"^(.+)__w(\d+)__(.+)$")
 _college_cache: dict = {"key": None, "leagues": [], "building": False}
 
@@ -214,6 +234,34 @@ def get_recent_scores(limit_per_league: int = 8) -> list[dict]:
                 hc, ac = team_conf.get(g["home_name"], ""), team_conf.get(g["away_name"], "")
                 results.append({"league": lg["label"], "save_key": lg["save_key"],
                                 "conf": hc if hc and hc == ac else "", **g})
+        conn = _conn(path)
+        for lg in _load_wvl_leagues(conn):
+            blob = lg["blob"]
+            current_week = int(blob.get("current_week", 0))
+            collected = 0
+            # WVL results come back as {week: [games]} with int keys after
+            # load, but SQLite hands us the raw JSON where they're strings.
+            for w in range(current_week, 0, -1):
+                games = blob.get("results", {}).get(str(w)) \
+                        or blob.get("results", {}).get(w) or []
+                for g in games:
+                    if collected >= limit_per_league:
+                        break
+                    home_key = g.get("home_key", "")
+                    away_key = g.get("away_key", "")
+                    results.append({
+                        "league": lg["label"], "save_key": lg["save_key"],
+                        "week": w,
+                        "matchup_key": f"{away_key}_at_{home_key}",
+                        "home_name": g.get("home_name", ""),
+                        "away_name": g.get("away_name", ""),
+                        "home_score": _num(g.get("home_score", 0)),
+                        "away_score": _num(g.get("away_score", 0)),
+                    })
+                    collected += 1
+                if collected >= limit_per_league:
+                    break
+        conn.close()
     except Exception:
         pass
     return results
@@ -281,6 +329,27 @@ def get_standings() -> list[dict]:
             out.append({"league": lg["label"], "save_key": lg["save_key"],
                         "tier": "College", "teams": teams,
                         "has_kenpom": bool(kp_rows)})
+        conn = _conn(path)
+        for lg in _load_wvl_leagues(conn):
+            blob = lg["blob"]
+            teams = []
+            for team_key, ts in blob.get("standings", {}).items():
+                if not isinstance(ts, dict):
+                    continue
+                teams.append({
+                    "team_key": team_key,
+                    "team_name": ts.get("team_name", team_key),
+                    "wins": ts.get("wins", 0),
+                    "losses": ts.get("losses", 0),
+                    "ties": ts.get("ties", 0),
+                    "pf": ts.get("pf", 0),
+                    "pa": ts.get("pa", 0),
+                    "streak": "", "streak_type": "",
+                })
+            teams.sort(key=lambda t: (-t["wins"], t["losses"]))
+            out.append({"league": lg["label"], "save_key": lg["save_key"],
+                        "tier": "WVL", "teams": teams})
+        conn.close()
     except Exception:
         pass
     return out
@@ -360,9 +429,59 @@ def get_stat_leaders(limit: int = 10) -> list[dict]:
             out.append({"league": lg["label"], "save_key": lg["save_key"],
                         "tier": "College",
                         "boards": _build_boards(lg["leaders"], limit)})
+        conn = _conn(path)
+        for lg in _load_wvl_leagues(conn):
+            out.append({"league": lg["label"], "save_key": lg["save_key"],
+                        "tier": "WVL",
+                        "boards": _build_boards(_wvl_player_leaders(lg["blob"]), limit)})
+        conn.close()
     except Exception:
         pass
     return out
+
+
+def _wvl_player_leaders(blob: dict) -> list[dict]:
+    """Aggregate current-year stats from each card's career_seasons.
+
+    A WVL career league stores everything in `cards[pid].career_seasons`,
+    a list of SeasonStats — most recent (current year) at the end."""
+    year = blob.get("year")
+    players = []
+    for pid, card in blob.get("cards", {}).items():
+        seasons = card.get("career_seasons") or []
+        if not seasons:
+            continue
+        # Prefer the season matching league.year; fall back to the last.
+        season = next((s for s in reversed(seasons)
+                       if s.get("season_year") == year), seasons[-1])
+        rushing_yards = season.get("rushing_yards", 0)
+        kp_yards = season.get("kick_pass_yards", 0)
+        lateral_yards = season.get("lateral_yards", 0)
+        first = card.get("first_name", "")
+        last = card.get("last_name", "")
+        name = (first + " " + last).strip() or card.get("player_id", pid)
+        players.append({
+            "name": name,
+            "team_key": season.get("team", ""),
+            "position": card.get("position", ""),
+            "games": season.get("games_played", 0),
+            "rushing_yards": rushing_yards,
+            "rushing_carries": season.get("rush_carries", 0),
+            "touchdowns": season.get("touchdowns", 0),
+            "kick_pass_yards": kp_yards,
+            "kick_pass_completions": season.get("kick_passes_completed", 0),
+            "kick_pass_tds": season.get("kick_pass_tds", 0),
+            "lateral_yards": lateral_yards,
+            "laterals": season.get("laterals_thrown", 0),
+            "tackles": season.get("tackles", 0),
+            "tfl": season.get("tfl", 0),
+            "sacks": season.get("sacks", 0),
+            "dk_made": season.get("dk_makes", 0),
+            "dk_att": season.get("dk_attempts", 0),
+            "total_yards": season.get("total_yards",
+                                       rushing_yards + kp_yards + lateral_yards),
+        })
+    return players
 
 
 def get_game_detail(save_key: str, week: int, matchup_key: str) -> dict[str, Any] | None:
@@ -376,6 +495,32 @@ def get_game_detail(save_key: str, week: int, matchup_key: str) -> dict[str, Any
             (save_key,)
         ).fetchone()
         if not row:
+            # WVL career leagues: lookup by UUID save_key, then find the
+            # game in `results` by parsing the `<away>_at_<home>` matchup.
+            wvl = conn.execute(
+                "SELECT label, data FROM saves WHERE save_type='wvl_career_league' AND save_key=?",
+                (save_key,)
+            ).fetchone()
+            if wvl:
+                conn.close()
+                blob = json.loads(wvl["data"])
+                games = (blob.get("results", {}).get(str(week))
+                         or blob.get("results", {}).get(week) or [])
+                away_key, _, home_key = matchup_key.partition("_at_")
+                game = next((g for g in games
+                             if g.get("away_key") == away_key
+                             and g.get("home_key") == home_key), None)
+                if not game:
+                    return None
+                return {
+                    "league": wvl["label"] or f"WVL Y{blob.get('year', '')}".rstrip(),
+                    "save_key": save_key, "week": week, "matchup_key": matchup_key,
+                    "home_name": game.get("home_name", ""),
+                    "away_name": game.get("away_name", ""),
+                    "home_score": _num(game.get("home_score", 0)),
+                    "away_score": _num(game.get("away_score", 0)),
+                    "result": {},
+                }
             # College: one box_score blob per game.
             box = conn.execute(
                 "SELECT data FROM saves WHERE save_type='box_score' AND save_key=?",
