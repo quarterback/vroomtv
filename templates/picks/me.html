@@ -1,0 +1,248 @@
+{% extends "picks/base.html" %}
+{% block title %}My Picks — Peak Fantasy Sports{% endblock %}
+
+{% block extra_style %}
+.me-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+@media (max-width: 640px) { .me-grid { grid-template-columns: 1fr; } }
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+.stat-card-title {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: .75rem;
+}
+.stat-big {
+  font-family: 'Boska', serif;
+  font-weight: 900;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: var(--gold);
+}
+.stat-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: .6rem;
+  flex-wrap: wrap;
+}
+.stat-item { display: flex; flex-direction: column; }
+.stat-val { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.stat-lab { font-size: .68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+
+/* Zora bar */
+.zora-bar-wrap {
+  margin-top: .85rem;
+}
+.zora-bar-track {
+  height: 8px;
+  background: var(--surface2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: .4rem;
+}
+.zora-bar-fill {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  transition: width .4s;
+}
+.zora-bar-labels { display: flex; justify-content: space-between; font-size: .72rem; color: var(--text-muted); }
+
+/* Week history strip */
+.history-strip {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+.history-pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: .5rem .85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+.history-pill.current { border-color: var(--gold-dim); background: rgba(245,158,11,.06); }
+.hp-week { font-size: .65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.hp-pts { font-family: 'Boska', serif; font-weight: 700; font-size: 1.1rem; color: var(--gold); }
+.hp-rec { font-size: .68rem; color: var(--text-muted); }
+
+/* Picks table */
+.picks-section-title {
+  font-family: 'Boska', serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+.picks-list { display: flex; flex-direction: column; gap: .5rem; }
+.pick-row-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: .75rem;
+}
+.pick-row-card.correct-card { border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.04); }
+.pick-row-card.wrong-card   { border-color: rgba(239,68,68,.2);  background: rgba(239,68,68,.03); }
+.pick-row-card.pending-card { border-color: rgba(245,158,11,.2); }
+
+.pick-sport { flex-shrink: 0; }
+.pick-teams { display: flex; flex-direction: column; }
+.pick-matchup { font-size: .82rem; color: var(--text-dim); }
+.pick-matchup strong { color: var(--text); }
+.pick-your { font-size: .72rem; color: var(--text-muted); margin-top: .1rem; }
+.pick-your strong { color: var(--gold); }
+.pick-result { text-align: right; }
+.pick-result-icon { font-size: 1rem; }
+.pick-pts { font-weight: 700; font-size: .9rem; color: var(--green); }
+.pick-pts-miss { color: var(--text-muted); font-size: .9rem; }
+.pick-pv { font-size: .72rem; color: var(--text-muted); }
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:2rem;">
+  <div style="font-family:'Boska',serif;font-weight:900;font-size:2.2rem;color:var(--text);">My Picks</div>
+  <div style="color:var(--text-muted);font-size:.9rem;margin-top:.3rem;">{{ week_key }} · Commissioner</div>
+</div>
+
+<!-- Stats grid -->
+<div class="me-grid">
+  <!-- Zora wallet -->
+  <div class="stat-card">
+    <div class="stat-card-title">Zora Balance — {{ week_key }}</div>
+    <div class="stat-big">{{ "{:,}".format(zoras) }}</div>
+    <div class="zora-bar-wrap">
+      <div class="zora-bar-track">
+        <div class="zora-bar-fill" style="width:{{ [(zoras / zora_total * 100), 100] | min | int }}%"></div>
+      </div>
+      <div class="zora-bar-labels">
+        <span>{{ "{:,}".format(zoras) }} remaining</span>
+        <span>{{ "{:,}".format(zora_total) }} weekly</span>
+      </div>
+    </div>
+    <div class="stat-row" style="margin-top:1rem;">
+      <div class="stat-item">
+        <span class="stat-val">{{ stats.week.picks_total }}</span>
+        <span class="stat-lab">Picks Made</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-val">{{ stats.week.picks_correct }}</span>
+        <span class="stat-lab">Correct</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-val">{{ stats.week.win_pct }}%</span>
+        <span class="stat-lab">Win Rate</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- This week points + rank -->
+  <div class="stat-card">
+    <div class="stat-card-title">This Week</div>
+    <div class="stat-big">{{ "{:,}".format(stats.week.total_points) }}</div>
+    <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-top:.2rem;">
+      points
+    </div>
+    <div class="stat-row" style="margin-top:.85rem;">
+      <div class="stat-item">
+        <span class="stat-val">{{ '#' ~ my_rank if my_rank else '—' }}</span>
+        <span class="stat-lab">Current Rank</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-val">{{ stats.career.weeks_played }}</span>
+        <span class="stat-lab">Weeks Played</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-val">{{ stats.career.win_pct }}%</span>
+        <span class="stat-lab">Career Win Rate</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Week history -->
+{% if past_weeks %}
+<div style="margin-bottom:2rem;">
+  <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.75rem;">
+    Recent Weeks
+  </div>
+  <div class="history-strip">
+    {% for w in past_weeks %}
+    <div class="history-pill {{ 'current' if w.week_key == week_key else '' }}">
+      <span class="hp-week">{{ w.week_key }}</span>
+      <span class="hp-pts">{{ "{:,}".format(w.total_points) }}</span>
+      <span class="hp-rec">{{ w.picks_correct }}/{{ w.picks_total }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- This week's picks list -->
+<div class="picks-section-title">Week {{ week_key }} Picks</div>
+{% if not picks %}
+<div style="color:var(--text-muted);font-size:.9rem;padding:1.5rem 0;">
+  No picks yet this week. Head to the <a href="{{ url_for('pfs.index') }}" style="color:var(--gold)">slate</a> to get started.
+</div>
+{% else %}
+<div class="picks-list">
+  {% for p in picks %}
+    {% set card_cls = '' %}
+    {% if p.settled %}
+      {% set card_cls = 'correct-card' if p.correct else 'wrong-card' %}
+    {% else %}
+      {% set card_cls = 'pending-card' %}
+    {% endif %}
+    <div class="pick-row-card {{ card_cls }}">
+      <div class="pick-sport">
+        <span class="sport-badge {{ p.sport | lower }}">
+          {% if p.sport == 'Baseball' %}⚾{% elif p.sport == 'Viperball' %}🏉{% else %}🎾{% endif %}
+        </span>
+      </div>
+      <div class="pick-teams">
+        <div class="pick-matchup">{{ p.away_team }} <span style="color:var(--text-muted)">vs</span> {{ p.home_team }}</div>
+        <div class="pick-your">Your pick: <strong>{{ p.picked_team }}</strong></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="pick-pv">{{ "{:,}".format(p.point_value) }} pts available</div>
+        {% if p.settled %}
+          {% if p.correct %}
+            <div class="pick-pts">+{{ "{:,}".format(p.points_earned) }}</div>
+          {% else %}
+            <div class="pick-pts-miss">—</div>
+          {% endif %}
+        {% else %}
+          <div style="font-size:.72rem;color:var(--gold-dim);">Pending</div>
+        {% endif %}
+      </div>
+      <div class="pick-result-icon">
+        {% if p.settled %}
+          {{ '✅' if p.correct else '❌' }}
+        {% else %}
+          🔵
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

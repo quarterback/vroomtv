@@ -1,0 +1,266 @@
+{% extends "picks/base.html" %}
+{% block title %}Commissioner — Peak Fantasy Sports{% endblock %}
+
+{% block extra_style %}
+.comm-header {
+  margin-bottom: 2rem;
+}
+.comm-headline {
+  font-family: 'Boska', serif;
+  font-weight: 900;
+  font-size: 2.2rem;
+  color: var(--text);
+}
+.comm-sub { color: var(--text-muted); font-size: .9rem; margin-top: .35rem; }
+
+/* Status cards */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: .75rem;
+  margin-bottom: 2rem;
+}
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+}
+.status-val {
+  font-family: 'Boska', serif;
+  font-weight: 900;
+  font-size: 2rem;
+  color: var(--text);
+  line-height: 1;
+}
+.status-lab {
+  font-size: .68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-top: .35rem;
+}
+
+/* Action cards */
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+@media (max-width: 700px) { .action-grid { grid-template-columns: 1fr; } }
+
+.action-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.action-icon { font-size: 2rem; margin-bottom: .75rem; }
+.action-title {
+  font-family: 'Boska', serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text);
+  margin-bottom: .4rem;
+}
+.action-desc {
+  font-size: .82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  flex: 1;
+  margin-bottom: 1.1rem;
+}
+.action-card .btn { align-self: flex-start; }
+
+/* Danger zone */
+.danger-section {
+  background: var(--surface);
+  border: 1px solid rgba(239,68,68,.25);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+.danger-title {
+  font-weight: 700;
+  color: var(--red);
+  margin-bottom: .35rem;
+  font-size: .9rem;
+}
+.danger-desc { font-size: .82rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5; }
+
+/* Confirm modal overlay */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 2rem;
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+}
+.modal-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+.modal-title { font-family: 'Boska', serif; font-weight: 700; font-size: 1.3rem; margin-bottom: .5rem; }
+.modal-body { font-size: .88rem; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.5; }
+.modal-actions { display: flex; gap: .75rem; justify-content: center; }
+{% endblock %}
+
+{% block content %}
+<div class="comm-header">
+  <div class="comm-headline">Commissioner</div>
+  <div class="comm-sub">Manage the weekly slate, settle results, and reset competitions.</div>
+</div>
+
+<!-- Status overview -->
+<div class="status-grid">
+  <div class="status-card">
+    <div class="status-val">{{ summary.total_games }}</div>
+    <div class="status-lab">Games on Slate</div>
+  </div>
+  <div class="status-card">
+    <div class="status-val" style="color:{{ 'var(--green)' if summary.settled_games == summary.total_games and summary.total_games > 0 else 'var(--text)' }}">
+      {{ summary.settled_games }}
+    </div>
+    <div class="status-lab">Settled</div>
+  </div>
+  <div class="status-card">
+    <div class="status-val" style="color:{{ 'var(--gold)' if summary.unsettled_games > 0 else 'var(--text-muted)' }}">
+      {{ summary.unsettled_games }}
+    </div>
+    <div class="status-lab">Unsettled</div>
+  </div>
+  <div class="status-card">
+    <div class="status-val">{{ summary.human_picks }}</div>
+    <div class="status-lab">Your Picks</div>
+  </div>
+  <div class="status-card">
+    <div class="status-val">{{ "{:,}".format(zoras) }}</div>
+    <div class="status-lab">Zoras Left</div>
+  </div>
+  <div class="status-card">
+    <div class="status-val" style="font-size:1.1rem;padding-top:.4rem;">{{ week_key }}</div>
+    <div class="status-lab">Current Week</div>
+  </div>
+</div>
+
+<!-- Action cards -->
+<div class="action-grid">
+
+  <div class="action-card">
+    <div class="action-icon">📥</div>
+    <div class="action-title">Refresh Slate</div>
+    <div class="action-desc">
+      Pull newly completed games from all three sports (baseball, viperball, tennis) and add them to this week's slate with randomized point values.
+      Already-slated games are skipped automatically.
+    </div>
+    <form method="POST" action="{{ url_for('pfs.commissioner_refresh') }}">
+      <button type="submit" class="btn btn-gold">Refresh Slate</button>
+    </form>
+  </div>
+
+  <div class="action-card">
+    <div class="action-icon">🏆</div>
+    <div class="action-title">Settle Week</div>
+    <div class="action-desc">
+      Score your picks, simulate AI participant picks, and publish the leaderboard for
+      <strong>{{ week_key }}</strong>.
+      {% if summary.unsettled_games == 0 %}
+        <span style="color:var(--text-muted)"> — No unsettled games currently on the slate.</span>
+      {% else %}
+        {{ summary.unsettled_games }} game{{ 's' if summary.unsettled_games != 1 else '' }} will be settled.
+      {% endif %}
+    </div>
+    <form method="POST" action="{{ url_for('pfs.commissioner_settle') }}">
+      <button type="submit" class="btn btn-gold"
+        {% if summary.unsettled_games == 0 %}disabled style="opacity:.4;cursor:not-allowed"{% endif %}>
+        Settle Week
+      </button>
+    </form>
+  </div>
+
+  <div class="action-card">
+    <div class="action-icon">🔄</div>
+    <div class="action-title">New Week</div>
+    <div class="action-desc">
+      Restore your Zora balance to 1,000 for the current calendar week.
+      Use after settling if you've already exhausted your Zoras, or at the start of a fresh week.
+    </div>
+    <button class="btn btn-outline" onclick="document.getElementById('reset-modal').classList.add('open')">
+      Reset Week
+    </button>
+  </div>
+
+</div>
+
+<!-- How it works reference -->
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
+  <div style="font-weight:700;color:var(--text);margin-bottom:.65rem;font-size:.9rem;">How It Works</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.9rem;">
+    <div>
+      <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Slate</div>
+      <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">
+        Games are completed in the sims before they appear here. Results are hidden until you settle — you pick blind.
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Zoras</div>
+      <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">
+        You get 1,000 Zoras per week. Each pick costs 20 Zoras (max 50 picks). Spend wisely — you can't win what you don't enter.
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Points</div>
+      <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">
+        Each game has a random point value (7,499 – 11,205) set when the slate is built. Correct picks earn those points. Wrong picks earn nothing.
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Competition</div>
+      <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">
+        2,000 AI competitors participate with varying skill levels. Settle the week to see where you rank.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reset confirmation modal -->
+<div class="modal-overlay" id="reset-modal">
+  <div class="modal-box">
+    <div class="modal-icon">⚠️</div>
+    <div class="modal-title">Reset Your Zora Balance?</div>
+    <div class="modal-body">
+      This will restore your Zora balance to <strong style="color:var(--gold)">1,000 Zoras</strong> for week <strong>{{ week_key }}</strong>.
+      Your existing picks and leaderboard standing are unchanged.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="document.getElementById('reset-modal').classList.remove('open')">
+        Cancel
+      </button>
+      <form method="POST" action="{{ url_for('pfs.commissioner_reset') }}" style="display:inline">
+        <button type="submit" class="btn btn-danger">Yes, Reset Zoras</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('reset-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
+</script>
+{% endblock %}
