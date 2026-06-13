@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from urllib.parse import quote
 from flask import Flask, Response, render_template, abort, jsonify, request
-from adapters import baseball, viperball, tennis
+from adapters import baseball, viperball, tennis, desk
 import newsroom
 import sync
 
@@ -161,9 +161,17 @@ def index():
     tennis_scores = tennis.get_recent_scores()
     articles = baseball.get_news(limit=5)
     wire = newsroom.build_wire(baseball_scores, viperball_scores, tennis_scores)
+    desk_articles = desk.all_articles()
+    # Placement: desk "lead" beats the gazette + the wire; "featured"
+    # slots into the brief grid; "rail"/"wire" go to the sidebar list.
+    desk_lead = next((a for a in desk_articles if a["placement"] == "lead"), None)
+    desk_featured = [a for a in desk_articles if a["placement"] == "featured"]
+    desk_rail = [a for a in desk_articles
+                 if a["placement"] in ("rail", "wire") and a is not desk_lead]
     return render_template(
         "index.html",
         articles=articles, wire=wire,
+        desk_lead=desk_lead, desk_featured=desk_featured, desk_rail=desk_rail,
         baseball_scores=baseball_scores,
         baseball_extra=baseball.get_extra_scores(),
         viperball_scores=viperball_scores,
@@ -190,6 +198,7 @@ def news():
         by_sport.setdefault(it["sport"], []).append(it)
     return render_template("news.html",
                            articles=baseball.get_news(limit=50),
+                           desk_articles=desk.all_articles(),
                            wire_by_sport=by_sport)
 
 
@@ -198,7 +207,15 @@ def article(slate_date: str, voice_id: str):
     a = baseball.get_article(slate_date, voice_id)
     if not a:
         abort(404)
-    return render_template("article.html", a=a)
+    return render_template("article.html", a=a, kind="gazette")
+
+
+@app.route("/news/desk/<slug>")
+def desk_article(slug: str):
+    a = desk.get(slug)
+    if not a:
+        abort(404)
+    return render_template("article.html", a=a, kind="desk")
 
 
 def _pick(catalog: list[dict]) -> tuple:
