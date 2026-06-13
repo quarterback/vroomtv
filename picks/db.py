@@ -13,7 +13,9 @@ def _path() -> str:
 
 
 def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(_path())
+    path = _path()
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")

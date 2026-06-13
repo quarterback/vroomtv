@@ -527,3 +527,99 @@ section { margin-bottom: 36px; }
   font-size: 12.5px;
   color: var(--muted);
 }
+
+/* ── Fantasy Games Bar (cross-page) ───────────────────────────────── */
+.fantasy-bar {
+  background: #111827;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 20px;
+  overflow-x: auto;
+  white-space: nowrap;
+  border-bottom: 1px solid #1f2937;
+}
+.fantasy-bar::-webkit-scrollbar { display: none; }
+.fb-label {
+  font: 600 11px var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.fb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font: 600 12px var(--sans);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: opacity .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.fb-pill:hover { opacity: .85; }
+.fb-pill--baseball { background: #1e3a5f; color: #93c5fd; border-color: #2563eb33; }
+.fb-pill--baseball:hover { border-color: #3b82f6; }
+.fb-pill--viperball { background: #2d1b4e; color: #c4b5fd; border-color: #7c3aed33; }
+.fb-pill--viperball:hover { border-color: #8b5cf6; }
+.fb-pill--pfs { background: #1a1200; color: #fbbf24; border-color: #f59e0b55; font-weight: 700; }
+.fb-pill--pfs:hover { border-color: #f59e0b; }
+
+/* ── Fantasy Promo Cards (front page) ────────────────────────────── */
+.fantasy-promo-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 28px 0;
+}
+.fp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 20px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: transform .15s, box-shadow .15s;
+  position: relative;
+  overflow: hidden;
+}
+.fp-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.fp-card--baseball { background: #1e3a5f; color: #fff; }
+.fp-card--viperball { background: #2d1b4e; color: #fff; }
+.fp-card--pfs { background: #120e00; color: #fff; border: 1px solid #f59e0b44; }
+.fp-eyebrow {
+  font: 600 10.5px var(--sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: .6;
+}
+.fp-name {
+  font: 800 22px/1.1 'Boska', var(--serif);
+  margin: 2px 0 4px;
+}
+.fp-card--baseball .fp-name { color: #93c5fd; }
+.fp-card--viperball .fp-name { color: #c4b5fd; }
+.fp-card--pfs .fp-name { color: #fbbf24; }
+.fp-tagline {
+  font: 400 13.5px/1.45 var(--sans);
+  opacity: .75;
+  flex: 1;
+}
+.fp-cta {
+  display: inline-block;
+  margin-top: 12px;
+  font: 700 12px var(--sans);
+  letter-spacing: 0.04em;
+  padding: 6px 14px;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+.fp-card--baseball .fp-cta { background: #2563eb; color: #fff; }
+.fp-card--viperball .fp-cta { background: #7c3aed; color: #fff; }
+.fp-card--pfs .fp-cta { background: #f59e0b; color: #000; }
+@media (max-width: 640px) {
+  .fantasy-promo-row { grid-template-columns: 1fr; }
+}
