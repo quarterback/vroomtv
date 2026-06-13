@@ -18,6 +18,7 @@ primary_region = 'sjc'
   BASEBALL_DB = '/app/data/o27v2.db'
   BASEBALL_SYNC_URL = 'https://superinnin.gs/export/db'
   BASEBALL_PORTAL_URL = 'https://superinnin.gs'
+  PICKS_DB = '/picks_data/picks.db'
   PORT = '8080'
   SYNC_INTERVAL_MIN = '30'
   TENNIS_DB = '/app/data/tennis.db'
@@ -33,6 +34,13 @@ primary_region = 'sjc'
   auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
+
+# picks.db must survive restarts — mount a persistent volume.
+# One-time setup before first deploy:
+#   fly volumes create picks_data --region sjc --size 1 --app vroomtv
+[[mounts]]
+  source      = 'picks_data'
+  destination = '/picks_data'
 
 [[vm]]
   cpu_kind = 'shared'
