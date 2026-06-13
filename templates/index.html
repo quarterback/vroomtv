@@ -4,7 +4,8 @@
 {% block content %}
 
 {% set lead_article = articles[0] if articles else None %}
-{% set lead_wire = wire.lead if not lead_article else None %}
+{# Desk lead beats both the gazette lead and the wire lead. #}
+{% set lead_wire = wire.lead if not lead_article and not desk_lead else None %}
 
 <div class="chips">
   {% for sport, league in ticker_leagues %}
@@ -15,7 +16,19 @@
 <div class="front">
   <div class="front-main">
 
-    {% if lead_article %}
+    {% if desk_lead %}
+    <article class="lead-story">
+      <a href="{{ desk_lead.url }}" class="lead-art">
+        {% if desk_lead.image_url %}<img src="{{ desk_lead.image_url }}" alt="{{ desk_lead.image_alt }}">
+        {% else %}<img src="/art/{{ desk_lead.sport | lower }}/{{ desk_lead.art_seed }}.svg" alt="">
+        {% endif %}
+      </a>
+      <span class="kicker">{{ desk_lead.kicker or (desk_lead.sport ~ ' · Editor’s Desk') }}</span>
+      <h1><a href="{{ desk_lead.url }}">{{ desk_lead.headline }}</a></h1>
+      {% if desk_lead.dek %}<p class="lede">{{ desk_lead.dek }}</p>{% endif %}
+      <div class="byline">{{ desk_lead.byline }}{% if desk_lead.published_at %} &middot; {{ desk_lead.published_at }}{% endif %}</div>
+    </article>
+    {% elif lead_article %}
     <article class="lead-story">
       <a href="{{ url_for('article', slate_date=lead_article.slate_date, voice_id=lead_article.voice_id) }}" class="lead-art"><img src="/art/baseball/{{ lead_article.art_seed }}.svg" alt=""></a>
       <span class="kicker">Baseball &middot; The Gazette</span>
@@ -42,9 +55,18 @@
     {% endif %}
 
     {% set featured = wire.briefs[:3] if not lead_article else (wire.briefs[:2] + ([wire.lead] if wire.lead else []))[:3] %}
-    {% if featured %}
+    {% if desk_featured or featured %}
     <div class="story-grid">
-      {% for b in featured %}
+      {% for d in desk_featured[:3] %}
+      <a class="story-card" href="{{ d.url }}">
+        {% if d.image_url %}<img src="{{ d.image_url }}" alt="{{ d.image_alt }}">
+        {% else %}<img src="/art/{{ d.sport | lower }}/{{ d.art_seed }}.svg" alt="">
+        {% endif %}
+        <span class="kicker">{{ d.kicker or (d.sport ~ ' · Editor’s Desk') }}</span>
+        <h3>{{ d.headline }}</h3>
+      </a>
+      {% endfor %}
+      {% for b in featured[:(3 - desk_featured[:3] | length)] %}
       <a class="story-card" href="{{ b.url }}">
         <img src="/art/{{ b.sport | lower }}/{{ b.art_seed }}.svg" alt="">
         <span class="kicker">{{ b.sport }}{% if b.extra %} &middot; {{ b.extra }}{% endif %}</span>
@@ -113,6 +135,14 @@
   <aside class="rail">
     <div class="rail-module">
       <h2 class="rail-head">Top Headlines</h2>
+      {% if desk_rail %}
+      <ul class="headline-list">
+        {% for d in desk_rail %}
+        <li><a href="{{ d.url }}">{{ d.headline }}</a>
+          <span class="meta">{{ d.kicker or (d.sport ~ ' · Editor’s Desk') }}{% if d.published_at %} &middot; {{ d.published_at }}{% endif %}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
       {% set rail_articles = articles[1:] if lead_article else articles %}
       {% if rail_articles %}
       <ul class="headline-list">
@@ -137,7 +167,7 @@
         {% endfor %}
       </ul>
       {% endif %}
-      {% if not rail_briefs and not rail_articles %}
+      {% if not rail_briefs and not rail_articles and not desk_rail %}
       <div class="empty-note">Nothing filed yet</div>
       {% endif %}
     </div>

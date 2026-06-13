@@ -2,6 +2,20 @@
 {% block title %}News — Rocky Mountain News{% endblock %}
 {% block content %}
 <h1 class="page-title">News</h1>
+{% if desk_articles %}
+<h2 class="sect">Editor&rsquo;s Desk</h2>
+<div class="story-list">
+  {% for a in desk_articles %}
+  <article class="story-item">
+    <span class="kicker">{{ a.kicker or (a.sport ~ ' &middot; Editor&rsquo;s Desk') | safe }}</span>
+    <h2><a href="{{ a.url }}">{{ a.headline }}</a></h2>
+    {% if a.dek %}<p class="lede">{{ a.dek }}</p>
+    {% elif a.lede %}<p class="lede">{{ a.lede[:220] }}{% if a.lede|length > 220 %}&hellip;{% endif %}</p>{% endif %}
+    <div class="byline">{{ a.byline }}{% if a.published_at %} &middot; {{ a.published_at }}{% endif %}</div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
 {% if articles %}
 <div class="story-list">
   {% for a in articles %}
@@ -31,7 +45,7 @@
 {% endfor %}
 {% endif %}
 
-{% if not articles and not wire_by_sport %}
+{% if not articles and not wire_by_sport and not desk_articles %}
 <div class="empty-note">
   No stories filed yet. Articles generate from the O27 Gazette and appear
   here automatically; wire recaps fill in once games are simulated.

@@ -2,11 +2,31 @@
 {% block title %}{{ a.headline }} — Rocky Mountain News{% endblock %}
 {% block content %}
 <article class="article-page">
+  {% if kind == "desk" %}
+  <span class="kicker">{{ a.kicker or (a.sport ~ ' &middot; Editor&rsquo;s Desk') | safe }}</span>
+  <h1>{{ a.headline }}</h1>
+  {% if a.dek %}<p class="lede">{{ a.dek }}</p>{% endif %}
+  <div class="byline">{{ a.byline }}{% if a.published_at %} &middot; {{ a.published_at }}{% endif %}</div>
+  {% if a.image_url %}
+  <figure class="article-figure">
+    <img src="{{ a.image_url }}" alt="{{ a.image_alt }}">
+    {% if a.image_alt %}<figcaption>{{ a.image_alt }}</figcaption>{% endif %}
+  </figure>
+  {% endif %}
+  <div class="article-body">
+    {% for block in a.blocks %}
+      {% if block.kind == "h2" %}<h2>{{ block.text }}</h2>
+      {% else %}<p>{{ block.text }}</p>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
   <span class="kicker">Baseball &middot; The Gazette</span>
   <h1>{{ a.headline }}</h1>
   <div class="byline">{{ a.voice_id | replace('_', ' ') | title }} &middot; {{ a.slate_date }}</div>
   <div class="article-body">
     {% for p in a.paragraphs %}<p>{{ p }}</p>{% endfor %}
   </div>
+  {% endif %}
 </article>
 {% endblock %}
