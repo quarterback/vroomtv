@@ -10,11 +10,11 @@
     {% else %}{{ division | upper }} {{ gender | title }} &middot; Week {{ week }}{% endif %}
   </span>
   <div class="matchup">
-    <div class="side {{ 'won' if away_points > home_points else 'lost' }}">
+    <div class="side {{ 'won' if (away_points or 0) > (home_points or 0) else 'lost' }}">
       <span class="team">{{ a_label }}</span><span class="big">{{ away_points }}</span>
     </div>
     <span class="status">Final</span>
-    <div class="side {{ 'won' if home_points > away_points else 'lost' }}">
+    <div class="side {{ 'won' if (home_points or 0) > (away_points or 0) else 'lost' }}">
       <span class="big">{{ home_points }}</span><span class="team">{{ h_label }}</span>
     </div>
   </div>
