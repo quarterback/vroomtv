@@ -21,10 +21,10 @@
 <section>
   <h2 class="sect">{{ label }} batting</h2>
   <div class="table-scroll"><table class="data-table full">
-    <thead><tr><th>Player</th><th class="n">AB</th><th class="n">R</th><th class="n">H</th><th class="n">2B</th><th class="n">3B</th><th class="n">HR</th><th class="n">RBI</th><th class="n">BB</th><th class="n">K</th></tr></thead>
+    <thead><tr><th>Player</th><th>Pos</th><th class="n">AB</th><th class="n">R</th><th class="n">H</th><th class="n">2B</th><th class="n">3B</th><th class="n">HR</th><th class="n">RBI</th><th class="n">BB</th><th class="n">K</th></tr></thead>
     <tbody>
     {% for b in side_batters %}
-    <tr><td class="t">{{ b.player_name }}</td><td class="n">{{ b.ab }}</td><td class="n">{{ b.runs }}</td><td class="n">{{ b.hits }}</td><td class="n">{{ b.doubles }}</td><td class="n">{{ b.triples }}</td><td class="n">{{ b.hr }}</td><td class="n">{{ b.rbi }}</td><td class="n">{{ b.bb }}</td><td class="n">{{ b.k }}</td></tr>
+    <tr><td class="t">{{ b.player_name }}</td><td>{{ b.position or '' }}</td><td class="n">{{ b.ab }}</td><td class="n">{{ b.runs }}</td><td class="n">{{ b.hits }}</td><td class="n">{{ b.doubles }}</td><td class="n">{{ b.triples }}</td><td class="n">{{ b.hr }}</td><td class="n">{{ b.rbi }}</td><td class="n">{{ b.bb }}</td><td class="n">{{ b.k }}</td></tr>
     {% endfor %}
     </tbody>
   </table></div>

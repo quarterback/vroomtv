@@ -190,6 +190,10 @@ def get_extra_game_detail(tier: str, game_id: int) -> dict[str, Any] | None:
             d = dict(r)
             d.setdefault("runs", d.get("r", 0))
             d.setdefault("hits", d.get("h", 0))
+            # Lower tiers may not stamp a fielding position; fall back to the
+            # per-game position if present, else leave blank so the shared
+            # box-score template renders an empty cell rather than erroring.
+            d.setdefault("position", d.get("game_position") or "")
             return d
         def _norm_p(r):
             d = dict(r)
@@ -511,7 +515,10 @@ def get_game_detail(game_id: int) -> dict[str, Any] | None:
             conn.close()
             return None
         batters = conn.execute("""
-            SELECT b.*, p.name AS player_name, t.abbrev AS team_abbrev
+            SELECT b.*, p.name AS player_name, t.abbrev AS team_abbrev,
+                   COALESCE(NULLIF(b.game_position, ''),
+                            CASE WHEN p.is_joker = 1 THEN 'J' ELSE p.position END)
+                       AS position
             FROM game_batter_stats b
             JOIN players p ON p.id = b.player_id
             JOIN teams t ON t.id = b.team_id
