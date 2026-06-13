@@ -1,0 +1,177 @@
+{% extends "picks/base.html" %}
+{% block title %}Leaderboard — Peak Fantasy Sports{% endblock %}
+
+{% block extra_style %}
+.lb-header {
+  margin-bottom: 2rem;
+}
+.lb-headline {
+  font-family: 'Boska', serif;
+  font-weight: 900;
+  font-size: 2.2rem;
+  color: var(--text);
+  margin-bottom: .35rem;
+}
+.lb-sub { color: var(--text-muted); font-size: .9rem; }
+
+.lb-my-rank {
+  background: linear-gradient(135deg, #1a2540, #0f1a35);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
+}
+.lb-rank-big {
+  font-family: 'Boska', serif;
+  font-weight: 900;
+  font-size: 2.5rem;
+  color: var(--gold);
+  line-height: 1;
+}
+.lb-rank-label { font-size: .7rem; font-weight: 700; color: var(--gold-dim); text-transform: uppercase; letter-spacing: .07em; }
+.lb-divider { width: 1px; height: 36px; background: var(--border); }
+.lb-stat { display: flex; flex-direction: column; }
+.lb-stat-val { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.lb-stat-lab { font-size: .68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+
+.lb-table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .875rem;
+}
+.lb-table th {
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  padding: .65rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.lb-table th.right, .lb-table td.right { text-align: right; }
+.lb-table td {
+  padding: .7rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  color: var(--text-dim);
+}
+.lb-table tr:last-child td { border-bottom: none; }
+.lb-table tr.me td { background: rgba(245,158,11,.06); color: var(--text); }
+.lb-table tr.me td.username { color: var(--gold); font-weight: 700; }
+.lb-table tr:hover td { background: rgba(255,255,255,.02); }
+
+.rank-num {
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.rank-num.top3 { color: var(--gold); }
+.pts-val {
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+.pct-bar-wrap { display: flex; align-items: center; gap: .5rem; }
+.pct-bar { height: 4px; border-radius: 2px; background: var(--border); width: 60px; }
+.pct-fill { height: 4px; border-radius: 2px; background: var(--green); }
+.pct-val { font-size: .78rem; color: var(--text-dim); width: 36px; text-align: right; }
+
+.empty-board {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-muted);
+  font-size: .9rem;
+}
+{% endblock %}
+
+{% block content %}
+<div class="lb-header">
+  <div class="lb-headline">Weekly Leaderboard</div>
+  <div class="lb-sub">
+    {{ week_key }} · {{ board | length }}
+    {% if board | length >= 100 %}+{% endif %}
+    competitors shown
+  </div>
+</div>
+
+{% if my_row %}
+<div class="lb-my-rank">
+  <div>
+    <div class="lb-rank-label">Your Rank</div>
+    <div class="lb-rank-big">#{{ my_rank or '—' }}</div>
+  </div>
+  <div class="lb-divider"></div>
+  <div class="lb-stat">
+    <span class="lb-stat-val">{{ "{:,}".format(my_row.total_points) }}</span>
+    <span class="lb-stat-lab">Points</span>
+  </div>
+  <div class="lb-stat">
+    <span class="lb-stat-val">{{ my_row.picks_correct }}/{{ my_row.picks_total }}</span>
+    <span class="lb-stat-lab">Correct</span>
+  </div>
+  <div class="lb-stat">
+    <span class="lb-stat-val">{{ my_row.win_pct }}%</span>
+    <span class="lb-stat-lab">Win Rate</span>
+  </div>
+</div>
+{% elif my_rank is none %}
+<div class="lb-my-rank" style="border-color:var(--border)">
+  <div style="color:var(--text-muted); font-size:.9rem;">
+    Make your first picks this week to appear on the leaderboard.
+  </div>
+</div>
+{% endif %}
+
+{% if not board %}
+<div class="lb-table-wrap">
+  <div class="empty-board">
+    No results yet — the Commissioner needs to settle this week's games first.
+  </div>
+</div>
+{% else %}
+<div class="lb-table-wrap">
+  <table class="lb-table">
+    <thead>
+      <tr>
+        <th style="width:52px">#</th>
+        <th>Player</th>
+        <th class="right">Points</th>
+        <th class="right">Picks</th>
+        <th>Win Rate</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in board %}
+      <tr class="{{ 'me' if row.is_human else '' }}">
+        <td><span class="rank-num {{ 'top3' if row.rank <= 3 else '' }}">{{ row.rank }}</span></td>
+        <td class="username">
+          {{ row.username }}
+          {% if row.is_human %}<span style="font-size:.68rem;color:var(--gold-dim);margin-left:.4rem;">YOU</span>{% endif %}
+        </td>
+        <td class="right"><span class="pts-val">{{ "{:,}".format(row.total_points) }}</span></td>
+        <td class="right" style="font-variant-numeric:tabular-nums;">{{ row.picks_correct }}/{{ row.picks_total }}</td>
+        <td>
+          <div class="pct-bar-wrap">
+            <div class="pct-bar"><div class="pct-fill" style="width:{{ row.win_pct }}%"></div></div>
+            <span class="pct-val">{{ row.win_pct }}%</span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

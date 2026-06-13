@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Peak Fantasy Sports{% endblock %}</title>
+  <meta name="description" content="Pick winners across baseball, viperball, and tennis. Compete weekly for points.">
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800&f[]=boska@700,900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0d1117;
+      --surface:    #161b27;
+      --surface2:   #1e2636;
+      --border:     #2a3347;
+      --gold:       #f59e0b;
+      --gold-dim:   #92600a;
+      --green:      #22c55e;
+      --red:        #ef4444;
+      --blue:       #3b82f6;
+      --purple:     #a855f7;
+      --emerald:    #10b981;
+      --text:       #f1f5f9;
+      --text-muted: #64748b;
+      --text-dim:   #94a3b8;
+      --radius:     10px;
+      --sport-baseball:  #3b82f6;
+      --sport-viperball: #a855f7;
+      --sport-tennis:    #10b981;
+    }
+
+    body {
+      font-family: 'Switzer', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ── Top bar ── */
+    .pfs-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      height: 52px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .pfs-brand {
+      display: flex;
+      align-items: baseline;
+      gap: .5rem;
+      text-decoration: none;
+    }
+    .pfs-logo {
+      font-family: 'Boska', serif;
+      font-weight: 900;
+      font-size: 1.35rem;
+      color: var(--gold);
+      letter-spacing: -.02em;
+    }
+    .pfs-tagline {
+      font-size: .68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .pfs-nav {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .pfs-nav a {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .pfs-nav a:hover, .pfs-nav a.active { color: var(--text); }
+    .pfs-nav a.active { color: var(--gold); }
+    .pfs-nav .back-link {
+      font-size: .75rem;
+      color: var(--text-muted);
+      border-left: 1px solid var(--border);
+      padding-left: 1.5rem;
+    }
+    .pfs-nav .back-link:hover { color: var(--text-dim); }
+
+    /* Zora wallet chip */
+    .zora-chip {
+      background: linear-gradient(135deg, #1a2540, #0f1a35);
+      border: 1px solid var(--gold-dim);
+      border-radius: 20px;
+      padding: .28rem .75rem;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .zora-chip .z-label {
+      font-size: .65rem;
+      font-weight: 600;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    /* ── Page layout ── */
+    .pfs-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* ── Flash messages ── */
+    .flash-list { list-style: none; margin-bottom: 1.25rem; }
+    .flash-msg {
+      padding: .75rem 1rem;
+      border-radius: var(--radius);
+      font-size: .875rem;
+      font-weight: 500;
+      margin-bottom: .5rem;
+    }
+    .flash-msg.success { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: var(--green); }
+    .flash-msg.error   { background: rgba(239,68,68,.12);  border: 1px solid rgba(239,68,68,.3);  color: var(--red); }
+    .flash-msg.info    { background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3); color: var(--blue); }
+
+    /* ── Week badge ── */
+    .week-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .3rem .75rem;
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    /* ── Section header ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      gap: 1rem;
+    }
+    .section-title {
+      font-family: 'Boska', serif;
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: var(--text);
+    }
+
+    /* ── Sport badge ── */
+    .sport-badge {
+      display: inline-block;
+      padding: .18rem .55rem;
+      border-radius: 4px;
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+    .sport-badge.baseball  { background: rgba(59,130,246,.18);  color: var(--sport-baseball); }
+    .sport-badge.viperball { background: rgba(168,85,247,.18);  color: var(--sport-viperball); }
+    .sport-badge.tennis    { background: rgba(16,185,129,.18);  color: var(--sport-tennis); }
+
+    /* ── Utility ── */
+    .text-gold   { color: var(--gold); }
+    .text-green  { color: var(--green); }
+    .text-red    { color: var(--red); }
+    .text-muted  { color: var(--text-muted); }
+    .text-dim    { color: var(--text-dim); }
+    .font-mono   { font-family: 'SF Mono', 'Fira Code', monospace; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .55rem 1.1rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Switzer', sans-serif;
+      font-size: .85rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:hover   { opacity: .88; }
+    .btn:active  { transform: scale(.97); }
+    .btn-gold    { background: var(--gold); color: #0d1117; }
+    .btn-outline { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-outline:hover { color: var(--text); border-color: var(--text-dim); }
+    .btn-danger  { background: rgba(239,68,68,.15); color: var(--red); border: 1px solid rgba(239,68,68,.3); }
+    .btn-sm      { font-size: .78rem; padding: .38rem .8rem; }
+
+    {% block extra_style %}{% endblock %}
+  </style>
+</head>
+<body>
+
+<header class="pfs-bar">
+  <a class="pfs-brand" href="{{ url_for('pfs.index') }}">
+    <span class="pfs-logo">PFS</span>
+    <span class="pfs-tagline">Peak Fantasy Sports</span>
+  </a>
+  <nav class="pfs-nav">
+    <a href="{{ url_for('pfs.index') }}"{% if request.endpoint == 'pfs.index' %} class="active"{% endif %}>Slate</a>
+    <a href="{{ url_for('pfs.leaderboard') }}"{% if request.endpoint == 'pfs.leaderboard' %} class="active"{% endif %}>Leaderboard</a>
+    <a href="{{ url_for('pfs.me') }}"{% if request.endpoint == 'pfs.me' %} class="active"{% endif %}>My Picks</a>
+    <a href="{{ url_for('pfs.commissioner') }}"{% if request.endpoint == 'pfs.commissioner' %} class="active"{% endif %}>Commissioner</a>
+    <div class="zora-chip">
+      <span class="z-label">Zoras</span>
+      <span>{{ "{:,}".format(zoras) }}</span>
+    </div>
+    <a class="back-link" href="{{ url_for('index') }}">← Rocky Mtn News</a>
+  </nav>
+</header>
+
+<div class="pfs-container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <ul class="flash-list">
+      {% for cat, msg in messages %}
+      <li class="flash-msg {{ cat }}">{{ msg }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

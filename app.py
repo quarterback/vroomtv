@@ -11,6 +11,10 @@ import sync
 app = Flask(__name__)
 sync.start_timer()
 
+from picks import pfs_bp  # noqa: E402
+app.register_blueprint(pfs_bp)
+app.secret_key = os.environ.get("SECRET_KEY", "pfs-dev-secret-change-in-prod")
+
 
 def _feed_auth_ok(sport: str, write: bool = False) -> bool:
     """Auth for per-sport feed routes. Valid tokens: the sport's own sync

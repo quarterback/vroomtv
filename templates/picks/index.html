@@ -1,0 +1,309 @@
+{% extends "picks/base.html" %}
+{% block title %}Week {{ week_key }} Slate — Peak Fantasy Sports{% endblock %}
+
+{% block extra_style %}
+.slate-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.slate-headline {
+  font-family: 'Boska', serif;
+  font-weight: 900;
+  font-size: 2.2rem;
+  line-height: 1.1;
+  color: var(--text);
+}
+.slate-meta {
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.stat-pill {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: .3rem .9rem;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.stat-pill span { color: var(--text); font-weight: 700; }
+
+/* Sport groups */
+.sport-section { margin-bottom: 2.5rem; }
+.sport-section-title {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: 1rem;
+  padding-bottom: .6rem;
+  border-bottom: 1px solid var(--border);
+}
+.sport-section-name {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: .03em;
+}
+.sport-count { color: var(--text-muted); font-size: .8rem; }
+
+/* Game cards grid */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: .75rem;
+}
+.game-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  transition: border-color .15s;
+  position: relative;
+}
+.game-card:hover { border-color: #3a4560; }
+.game-card.picked  { border-color: #2a3a5c; background: #131c2e; }
+.game-card.settled { opacity: .9; }
+.game-card.correct { border-color: rgba(34,197,94,.4); background: rgba(34,197,94,.04); }
+.game-card.wrong   { border-color: rgba(239,68,68,.25);  background: rgba(239,68,68,.03); }
+
+.game-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: .75rem;
+}
+.point-value {
+  font-family: 'Boska', serif;
+  font-weight: 900;
+  font-size: 1.6rem;
+  color: var(--gold);
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+.point-label {
+  font-size: .62rem;
+  font-weight: 700;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+
+.matchup {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .9rem;
+}
+.team-block { display: flex; flex-direction: column; }
+.team-block.away { text-align: right; }
+.team-name {
+  font-weight: 700;
+  font-size: .92rem;
+  color: var(--text);
+  line-height: 1.2;
+}
+.team-label {
+  font-size: .65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.vs-sep {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Pick buttons */
+.pick-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+.pick-btn {
+  padding: .55rem .5rem;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-family: 'Switzer', sans-serif;
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+.pick-btn:hover { background: #2a3550; border-color: #3a4a70; color: var(--text); }
+.pick-btn.selected-win { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.5); color: var(--green); }
+.pick-btn.selected-loss { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: var(--red); opacity: .7; }
+.pick-btn.selected-pending { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.35); color: var(--gold); }
+.pick-btn.not-picked { opacity: .45; cursor: default; }
+
+/* Result overlay */
+.result-badge {
+  position: absolute;
+  top: .7rem;
+  right: .7rem;
+  padding: .22rem .6rem;
+  border-radius: 5px;
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.result-badge.win  { background: rgba(34,197,94,.2);  color: var(--green); }
+.result-badge.loss { background: rgba(239,68,68,.15); color: var(--red); }
+.result-badge.pending { background: rgba(245,158,11,.1); color: var(--gold-dim); }
+
+.points-earned {
+  margin-top: .6rem;
+  text-align: center;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+.empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+.empty-title { font-size: 1.1rem; font-weight: 700; color: var(--text-dim); margin-bottom: .5rem; }
+.empty-sub { font-size: .9rem; }
+{% endblock %}
+
+{% block content %}
+<div class="slate-header">
+  <div>
+    <div class="slate-headline">This Week's Slate</div>
+    <div style="margin-top:.4rem; color:var(--text-muted); font-size:.85rem;">
+      Pick winners. Spend Zoras. Climb the board.
+    </div>
+  </div>
+  <div class="slate-meta">
+    <div class="week-badge">{{ week_key }}</div>
+    <div class="stat-pill">
+      <span>{{ summary.human_picks }}</span> of <span>{{ summary.total_games }}</span> games picked
+    </div>
+    <div class="stat-pill">
+      <span>{{ "{:,}".format(zoras) }}</span> Zoras left · <span>{{ zora_cost }}</span> per pick
+    </div>
+  </div>
+</div>
+
+{% if not games %}
+<div class="empty-state">
+  <div class="empty-icon">🎯</div>
+  <div class="empty-title">No games on the slate yet</div>
+  <div class="empty-sub">The Commissioner needs to refresh the slate from the Commissioner dashboard.</div>
+</div>
+{% else %}
+  {% set sports = games | map(attribute='sport') | unique | list %}
+  {% for sport in sports %}
+    {% set sport_games = games | selectattr('sport', 'eq', sport) | list %}
+    <div class="sport-section">
+      <div class="sport-section-title">
+        <span class="sport-badge {{ sport | lower }}">
+          {% if sport == 'Baseball' %}⚾{% elif sport == 'Viperball' %}🏉{% else %}🎾{% endif %}
+          {{ sport }}
+        </span>
+        <span class="sport-count">{{ sport_games | length }} game{{ 's' if sport_games | length != 1 else '' }}</span>
+      </div>
+      <div class="games-grid">
+        {% for g in sport_games %}
+          {% set is_picked = g.picked is not none %}
+          {% set is_settled = g.settled %}
+          {% set card_class = '' %}
+          {% if is_settled and is_picked %}
+            {% set card_class = 'settled correct' if g.correct else 'settled wrong' %}
+          {% elif is_settled %}
+            {% set card_class = 'settled' %}
+          {% elif is_picked %}
+            {% set card_class = 'picked' %}
+          {% endif %}
+          <div class="game-card {{ card_class }}">
+            {% if is_settled and is_picked %}
+              <span class="result-badge {{ 'win' if g.correct else 'loss' }}">
+                {{ '✓ Win' if g.correct else '✗ Loss' }}
+              </span>
+            {% elif is_picked and not is_settled %}
+              <span class="result-badge pending">Pending</span>
+            {% endif %}
+
+            <div class="game-top">
+              <div>
+                <div class="point-value">{{ "{:,}".format(g.point_value) }}</div>
+                <div class="point-label">pts if correct</div>
+              </div>
+            </div>
+
+            <div class="matchup">
+              <div class="team-block away">
+                <span class="team-label">Away</span>
+                <span class="team-name">{{ g.away_team }}</span>
+              </div>
+              <div class="vs-sep">vs</div>
+              <div class="team-block">
+                <span class="team-label">Home</span>
+                <span class="team-name">{{ g.home_team }}</span>
+              </div>
+            </div>
+
+            {% if is_settled %}
+              <!-- Show result, no pick buttons -->
+              <div class="pick-row">
+                {% for team, side in [(g.away_team, 'away'), (g.home_team, 'home')] %}
+                  {% set is_winner = (g.winner == side) %}
+                  {% set was_picked = (g.picked == team) %}
+                  <div class="pick-btn
+                    {% if was_picked and is_winner %} selected-win
+                    {% elif was_picked and not is_winner %} selected-loss
+                    {% elif not was_picked %} not-picked
+                    {% endif %}">
+                    {{ team | truncate(14, killwords=True, end='…') }}
+                    {% if is_winner %} ✓{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+              {% if is_picked and g.correct %}
+              <div class="points-earned">+{{ "{:,}".format(g.points_earned) }} pts earned</div>
+              {% endif %}
+            {% elif is_picked %}
+              <!-- Already picked, pending result -->
+              <div class="pick-row">
+                {% for team in [g.away_team, g.home_team] %}
+                  <div class="pick-btn {{ 'selected-pending' if g.picked == team else 'not-picked' }}">
+                    {{ team | truncate(14, killwords=True, end='…') }}
+                    {% if g.picked == team %} ●{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <!-- Available to pick -->
+              <form method="POST" action="{{ url_for('pfs.pick') }}" class="pick-row">
+                <input type="hidden" name="slate_id" value="{{ g.id }}">
+                {% for team in [g.away_team, g.home_team] %}
+                  <button type="submit" name="picked_team" value="{{ team }}" class="pick-btn"
+                    {% if zoras < zora_cost %}disabled title="Not enough Zoras"{% endif %}>
+                    {{ team | truncate(14, killwords=True, end='…') }}
+                  </button>
+                {% endfor %}
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+{% endif %}
+{% endblock %}
