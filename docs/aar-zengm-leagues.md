@@ -151,29 +151,33 @@ NHL + PWHL; basketball standings split East/West; SGA 32.5 PPG (NBA), Ashley
 Carter 26.1 PPG (W-NCAA); generic game route + unknown-key 404 confirmed; the
 three existing sims still render.
 
-**Memory — load-time compaction (resolved).** Per the user, the deliverable is
-scores/results + standings + leaders; box scores only matter for the occasional
-game they want an article on, and big leagues need not be clickable. So
-`zengm_common.load()` now parses the raw export once and immediately **projects
-it to a lean shape** (`_project`) — game *scores* + team records + the current
-season's player stats always; per-game player box lines + goal summaries only
-when the file is ≤ `KEEP_BOX_MAX_BYTES` (120 MB). Only the lean copy is cached;
-the raw dict is freed. Files over the threshold are shown **unclickable** —
-`zengm_common.has_box()` / `zengm_feeds.clickable()` drive whether a game gets a
-`/game/zg/...` URL (the `scorecard` macro and `scores.html` already render a
-link-less card when the URL is empty), and the wire only recaps clickable games.
+**Memory + persistence — projected on upload (resolved).** Per the user, the
+deliverable is scores/results + standings + leaders, and box-score detail should
+**never persist or take up space** (new files are generated constantly). So box
+scores are dropped everywhere (`KEEP_BOX_SCORES = False`) and the projection now
+happens **at upload time**: `POST/PUT /upload/<key>` streams the raw export to a
+temp file, then `zengm_common.project_file()` rewrites the destination as the
+lean league (game *scores* + team records + current-season player stats; no
+per-game box lines or goal summaries) and discards the raw bytes. `load()`
+applies the same projection defensively, and only the lean copy is ever cached.
 
-Effect on the Women's NCAA D1 file (266 MB, 5573 games, 10k players):
-steady-state resident memory **~400 MB** (was ~1.3 GB when the full dict was
-cached); it still shows every game's score, full standings (364 teams) and PPG
-leaders — just no box-score pages. Pro leagues (PWHL 7 MB, NBA 72 MB) stay under
-the threshold and remain fully clickable.
+Measured on the Women's NCAA D1 file (266 MB, 5573 games, 10k players):
+- upload projects to a **9.6 MB** lean file on disk (~96% smaller) in ~6 s;
+- subsequent reads parse the lean file in **~0.23 s** at low memory — the
+  expensive 266 MB parse happens once, at upload, never per request or restart;
+- every game's score, the 364-team standings, and PPG leaders all still render.
 
-Remaining caveat: the **one-time parse** of a 266 MB file still peaks ~1.3 GB
-transiently (stdlib `json.load` builds the whole object before projection). That
-happens once per upload, not per request. If the hub is too small to survive
-even that transient, the fix is a streaming parse (ijson) in `_project` — the
-projection logic is already isolated, so it's a contained follow-up.
+Games are **not clickable** anywhere (`has_box()`/`clickable()` return False, the
+`scorecard` macro + `scores.html` render link-less cards on an empty URL, and the
+wire only recaps clickable games — currently none). Flip `KEEP_BOX_SCORES` back
+on (with the `KEEP_BOX_MAX_BYTES` cap) if clickable box-score pages for small
+leagues are ever wanted again; the box-score templates/route remain in place.
+
+Remaining caveat: the one-time parse during the upload request still peaks
+~1.3 GB transiently (stdlib `json.load` builds the whole object before
+projection). It's bounded to the upload, not steady-state. If a hub can't
+survive even that, a streaming parse (ijson) inside `project_file` is a
+contained follow-up.
 
 ### Current league keys / env vars
 

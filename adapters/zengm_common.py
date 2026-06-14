@@ -14,11 +14,12 @@ import json
 import os
 import threading
 
-# Files at or under this keep their full per-game box scores in memory (so
-# their games are clickable). Bigger leagues (a 351-team college season with
-# box scores is ~266 MB → ~1.3 GB resident) are compacted on load to scores +
-# season stats only, so steady-state memory stays bounded — those games still
-# show results, they just aren't clickable.
+# Hub policy: per-game box-score detail is never retained — there's no reason
+# to keep that content. Every league is projected to scores + team records +
+# season stats (see _project), so games show results everywhere but aren't
+# clickable. Flip KEEP_BOX_SCORES to True (and tune the size cap) only if you
+# ever want clickable box-score pages for small leagues again.
+KEEP_BOX_SCORES = False
 KEEP_BOX_MAX_BYTES = 120_000_000
 
 # env-var -> (mtime, lean-league)
@@ -37,8 +38,10 @@ def _file_size(env_var: str) -> int | None:
 
 
 def has_box(env_var: str) -> bool:
-    """Whether this feed's games should be clickable — true only for files
-    small enough to keep per-game player lines resident."""
+    """Whether this feed's games should be clickable — only when box scores
+    are retained at all (off by hub policy) and the file is small enough."""
+    if not KEEP_BOX_SCORES:
+        return False
     size = _file_size(env_var)
     return size is not None and size <= KEEP_BOX_MAX_BYTES
 
@@ -98,11 +101,33 @@ def load(env_var: str) -> dict | None:
             raw = json.load(fh)
     except (OSError, json.JSONDecodeError):
         return None
-    lean = _project(raw, keep_box=(os.path.getsize(path) <= KEEP_BOX_MAX_BYTES))
+    keep_box = KEEP_BOX_SCORES and os.path.getsize(path) <= KEEP_BOX_MAX_BYTES
+    lean = _project(raw, keep_box=keep_box)
     del raw
     with _lock:
         _cache[env_var] = (mtime, lean)
     return lean
+
+
+def project_file(src_path: str, dst_path: str) -> bool:
+    """Parse a raw ZenGM export and write the lean projection to ``dst_path``
+    (atomically), so box-score bulk never persists on disk. Used by the upload
+    route: a 266 MB export lands as a few-MB lean file. Returns False if the
+    source won't parse as JSON (caller should fall back to the raw bytes)."""
+    try:
+        with open(src_path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return False
+    keep_box = KEEP_BOX_SCORES and os.path.getsize(src_path) <= KEEP_BOX_MAX_BYTES
+    lean = _project(raw, keep_box=keep_box)
+    del raw
+    tmp = dst_path + ".lean.tmp"
+    os.makedirs(os.path.dirname(dst_path) or ".", exist_ok=True)
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(lean, fh, separators=(",", ":"))
+    os.replace(tmp, dst_path)
+    return True
 
 
 def ga(league: dict, key: str, default=None):

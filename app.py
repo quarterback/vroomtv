@@ -5,6 +5,7 @@ from datetime import datetime
 from urllib.parse import quote
 from flask import Flask, Response, render_template, abort, jsonify, request
 from adapters import baseball, viperball, tennis, zengm_feeds, desk
+from adapters import zengm_common
 import newsroom
 import sync
 
@@ -67,7 +68,15 @@ def upload_db(sport: str):
     if size == 0:
         os.unlink(tmp)
         return jsonify({"error": "empty body"}), 400
-    os.replace(tmp, dest)
+    # ZenGM feeds: project the raw export down to the lean league (scores +
+    # records + season stats, no box-score bulk) so that content never persists
+    # on disk. A 266 MB upload lands as a few-MB file. Falls back to raw bytes
+    # if it doesn't parse as JSON.
+    if sport in _JSON_FEEDS and zengm_common.project_file(tmp, dest):
+        os.unlink(tmp)
+        size = os.path.getsize(dest)
+    else:
+        os.replace(tmp, dest)
     return jsonify({sport: f"ok ({size:,} bytes)"})
 
 
