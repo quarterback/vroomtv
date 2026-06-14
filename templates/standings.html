@@ -65,6 +65,28 @@
   </table></div>
 </section>
 
+{% elif sel.kind == 'hockey' %}
+{# Hockey: one table per division, ranked by points (2·W + OTL + T). #}
+<div class="stack">
+  {% for division, teams in sel.teams | groupby('division') %}
+  <section>
+    <h2 class="sect">{{ sel.label }}{% if division and division != sel.label %} &middot; {{ division }}{% endif %}</h2>
+    <div class="table-scroll"><table class="data-table full">
+      <thead><tr><th>Team</th><th class="n">GP</th><th class="n">W</th><th class="n">L</th><th class="n">OTL</th><th class="n">PTS</th><th class="n">Strk</th></tr></thead>
+      <tbody>
+      {% for t in teams | sort(attribute='pts', reverse=true) %}
+      <tr><td class="t">{{ t.name }}</td>
+          <td class="n">{{ t.wins + t.losses + t.otl + t.ties }}</td>
+          <td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td>
+          <td class="n">{{ t.otl }}</td><td class="n"><b>{{ t.pts }}</b></td>
+          <td class="n">{% if t.streak %}{{ t.streak_type }}{{ t.streak }}{% else %}&mdash;{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+  {% endfor %}
+</div>
+
 {% elif sel.kind == 'tennis_portal' %}
 <section>
   <h2 class="sect">{{ sel.label }} &middot; Power Index {% if not sel.has_live_results %}<span class="meta">(preseason)</span>{% endif %}</h2>

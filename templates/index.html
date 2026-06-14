@@ -150,6 +150,20 @@
         {% endfor %}
         {% endif %}
       </section>
+
+      {% for sec in zengm_sections %}
+      <section>
+        <h2 class="sect">{{ sec.sport }}</h2>
+        {% for lg in sec.leagues %}
+        {% if sec.leagues | length > 1 %}<h3 class="subsect">{{ lg.league }}</h3>{% endif %}
+        <div class="card-grid">
+          {% for g in lg.scores %}
+          {{ scorecard(('/game/zg/' ~ g.key ~ '/' ~ g.id) if lg.clickable else '', g.away_name, g.home_name, g.away_score, g.home_score, 'Playoffs' if g.is_playoff else 'Final') }}
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endfor %}
     </div>
   </div>
 

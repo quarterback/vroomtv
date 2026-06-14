@@ -64,7 +64,8 @@ def _item(sport: str, league: str, home: str, away: str,
 
 
 def build_wire(baseball_scores: list, viperball_scores: list,
-               tennis_scores: list, briefs: int = 8) -> dict:
+               tennis_scores: list, briefs: int = 8,
+               zengm_scores: list | None = None) -> dict:
     """{"lead": item|None, "briefs": [items]} from raw adapter scores."""
     items = []
     for g in baseball_scores:
@@ -83,6 +84,11 @@ def build_wire(baseball_scores: list, viperball_scores: list,
             "Tennis", g["league"], g["home_name"], g["away_name"],
             g["home_points"], g["away_points"],
             f"/game/tennis/{g['source']}/{g['id']}"))
+    for g in (zengm_scores or []):
+        items.append(_item(
+            g["sport_label"], g["league"], g["home_name"], g["away_name"],
+            g["home_score"], g["away_score"], f"/game/zg/{g['key']}/{g['id']}",
+            extra="Playoffs" if g.get("is_playoff") else ""))
     if not items:
         return {"lead": None, "briefs": []}
 
@@ -156,6 +162,22 @@ _SCENES = {
             "llllllllllllll",
         ],
     },
+    "hockey": {
+        # rink from above: blue lines, red center line, crease, puck
+        "bg": ("#dfe9f2", "#eef4fa"),
+        "colors": {"b": "#1d4ed8", "r": "#c8102e", "c": "#9ed8db", "p": "#10151c"},
+        "map": [
+            "..b....r....b.",
+            "..b....r....b.",
+            "..b...rrr...b.",
+            "ccb...rpr...bc",
+            "ccb...rrr...bc",
+            "ccb...rrr...bc",
+            "..b...rrr...b.",
+            "..b....r....b.",
+            "..b....r....b.",
+        ],
+    },
     "viperball": {
         # gridiron stripes and a loose ball
         "bg": ("#0b3d2e", "#14533f"),
@@ -172,7 +194,27 @@ _SCENES = {
             "..s...s...s...",
         ],
     },
+    "basketball": {
+        # hardwood half-court: paint, free-throw arc, hoop, ball
+        "bg": ("#b5722e", "#c98842"),
+        "colors": {"l": "#f4f1ea", "p": "#a85a23", "h": "#e8552a", "b": "#e0883a"},
+        "map": [
+            "llllllllllllll",
+            "l....pppp....l",
+            "l....p..p..b.l",
+            "l..h.p..p....l",
+            "l....p..p....l",
+            "l..h.p..p....l",
+            "l....p..p....l",
+            "l....pppp....l",
+            "llllllllllllll",
+        ],
+    },
 }
+
+# The hockey-engine reskins share the rink scene; basketball stands alone.
+for _alias in ("box lacrosse", "indoor soccer", "floorball"):
+    _SCENES[_alias] = _SCENES["hockey"]
 
 
 def pixel_art_svg(seed: int, sport: str = "", cols: int = 14, rows: int = 9,
