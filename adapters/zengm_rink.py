@@ -1,35 +1,43 @@
-"""Read-only adapter for a ZenGM Hockey League File (JSON export).
+"""Read-only adapter for ZenGM **hockey-engine** League Files (JSON exports).
 
-Mirrors the function surface of the SQLite adapters (baseball/viperball/
-tennis) so app.py and the templates treat hockey like any other sport — but
-the data source is a ZenGM League File on disk at ``$HOCKEY_LEAGUE_FILE``
-rather than a synced SQLite snapshot. See adapters/zengm_common.py for why
-and how the file is loaded/cached.
+The user reskins one ZenGM hockey codebase into several sports/leagues —
+hockey (NHL, PWHL), box lacrosse (NLL), indoor soccer (MASL), floorball —
+whose exports are structurally identical. This module is a generic ZGMH
+reader: every function takes a *feed* dict (one league file), defined in
+adapters/zengm_feeds.py, so any number of leagues can be grouped under any
+number of sport tabs without copying code.
 
-ZenGM conventions baked in here (verified against a real PWHL export):
-  * ``game.teams[0]`` is the HOME team, ``game.teams[1]`` the AWAY team.
-  * ``game.teams[i].pts`` is that team's goals; ``game.playoffs`` flags the
-    postseason; a goal's ``t`` indexes into ``game.teams``.
-  * Skater goals/assists are split ev/pp/sh (sum them); goalies are the
-    rows with ``gpGoalie > 0`` and carry sv/ga/so/gW plus ``gMin`` minutes.
+A feed dict looks like:
+    {"key": "pwhl", "sport": "Hockey", "league": "PWHL",
+     "env": "PWHL_LEAGUE_FILE", "engine": "rink"}
+
+ZenGM conventions (verified against a real PWHL export): ``game.teams[0]`` is
+HOME, ``[1]`` AWAY; ``game.playoffs`` flags the postseason; a goal's ``t``
+indexes into ``game.teams``; goalies are the rows with ``gpGoalie > 0``.
 """
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from adapters import zengm_common as z
 
-ENV = "HOCKEY_LEAGUE_FILE"
+# How standings/box scores for this engine are rendered (read by app.py +
+# zengm_feeds). Hockey-style standings (W/L/OTL/PTS), rink box-score template.
+STANDINGS_KIND = "hockey"
+GAME_TEMPLATE = "game_zgmh.html"
+# Head-to-head bars on the game page (away vs home team box totals).
+_DUEL_PAIRS = [("Shots", "s"), ("Hits", "hit"), ("Blocks", "blk"),
+               ("PIM", "pim"), ("Faceoff wins", "fow")]
 
 
-def _league() -> dict | None:
-    return z.load(ENV)
+def _league(cfg: dict) -> dict | None:
+    return z.load(cfg["env"])
 
 
-def league_label() -> str:
-    lg = _league()
-    return z.league_label(lg, "Hockey") if lg else "Hockey"
+def league_label(cfg: dict) -> str:
+    # The feed's configured name is authoritative (it's the dropdown label the
+    # user picked, e.g. NHL vs PWHL) — the in-file name is only a default.
+    return cfg["league"]
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -62,14 +70,14 @@ def _goalie_line(st: dict) -> dict:
 
 # ── scores ───────────────────────────────────────────────────────────────
 
-def get_recent_scores(limit: int = 15) -> list[dict]:
+def recent_scores(cfg: dict, limit: int = 15) -> list[dict]:
     """Current-season games, newest first. HOME = teams[0], AWAY = teams[1]."""
-    lg = _league()
+    lg = _league(cfg)
     if not lg:
         return []
     season = z.current_season(lg)
     teams = z.team_index(lg)
-    label = z.league_label(lg, "Hockey")
+    label = cfg["league"]
     games = [g for g in (lg.get("games") or []) if g.get("season") == season]
     games.sort(key=lambda g: (g.get("day", 0), g.get("gid", 0)), reverse=True)
     out = []
@@ -78,6 +86,7 @@ def get_recent_scores(limit: int = 15) -> list[dict]:
         away = teams.get(g["teams"][1]["tid"], {})
         out.append({
             "id": g["gid"], "league": label,
+            "key": cfg["key"], "sport_label": cfg["sport"],
             "season": season, "day": g.get("day", 0),
             "game_date": f"{season} · Day {g.get('day', 0)}",
             "home_name": home.get("name", "?"), "home_abbrev": home.get("abbrev", ""),
@@ -92,10 +101,8 @@ def get_recent_scores(limit: int = 15) -> list[dict]:
 
 # ── standings ────────────────────────────────────────────────────────────
 
-def get_standings() -> list[dict]:
-    """[{league, tier, teams}] for the current season. Hockey points =
-    2*W + OTL + T; rows carry W/L/OTL/T/PTS/streak grouped by division."""
-    lg = _league()
+def _standings_rows(cfg: dict) -> list[dict]:
+    lg = _league(cfg)
     if not lg:
         return []
     season = z.current_season(lg)
@@ -120,10 +127,17 @@ def get_standings() -> list[dict]:
             "streak": abs(streak),
             "streak_type": "W" if streak > 0 else "L" if streak < 0 else "",
         })
+    rows.sort(key=lambda r: r["pts"], reverse=True)
+    return rows
+
+
+def standings(cfg: dict) -> list[dict]:
+    """Catalog-ready league entries (hockey kind: W/L/OTL/PTS by division)."""
+    rows = _standings_rows(cfg)
     if not rows:
         return []
-    rows.sort(key=lambda r: r["pts"], reverse=True)
-    return [{"league": z.league_label(lg, "Hockey"), "tier": "Pro", "teams": rows}]
+    return [{"label": league_label(cfg), "kind": STANDINGS_KIND,
+             "tier": "Pro", "teams": rows}]
 
 
 # ── leaders ──────────────────────────────────────────────────────────────
@@ -171,10 +185,9 @@ def _season_aggregates(lg: dict, season: int):
     return list(skaters.values()), list(goalies.values())
 
 
-def get_leader_boards(limit: int = 10) -> list[dict]:
-    """Skater + goalie leader boards, shape matching the other sports
-    ({title, sort, cols, rows}) so leaders.html renders them generically."""
-    lg = _league()
+def leader_boards(cfg: dict, limit: int = 10) -> list[dict]:
+    """Skater + goalie leader boards ({title, sort, cols, rows})."""
+    lg = _league(cfg)
     if not lg:
         return []
     season = z.current_season(lg)
@@ -217,17 +230,11 @@ def get_leader_boards(limit: int = 10) -> list[dict]:
     return boards
 
 
-# ── news ─────────────────────────────────────────────────────────────────
-
-def get_news(limit: int = 6) -> list[dict]:
-    """ZenGM has no gazette; recaps come from the mechanical wire instead."""
-    return []
-
-
 # ── game detail ──────────────────────────────────────────────────────────
 
-def get_game_detail(game_id: int) -> dict[str, Any] | None:
-    lg = _league()
+def game_detail(cfg: dict, game_id: int) -> dict[str, Any] | None:
+    """Fully render-ready box score (duel + ladder included) for game_zgmh.html."""
+    lg = _league(cfg)
     if not lg:
         return None
     g = next((x for x in (lg.get("games") or []) if x.get("gid") == game_id), None)
@@ -268,21 +275,24 @@ def get_game_detail(game_id: int) -> dict[str, Any] | None:
             "kind": (s.get("goalType") or "").upper(),
         })
 
+    game = {
+        "id": g["gid"], "key": cfg["key"], "sport_label": cfg["sport"],
+        "home_name": home.get("name", "?"), "home_abbrev": home.get("abbrev", ""),
+        "away_name": away.get("name", "?"), "away_abbrev": away.get("abbrev", ""),
+        "home_team_id": home_tid, "away_team_id": away_tid,
+        "home_score": g["teams"][0].get("pts", 0),
+        "away_score": g["teams"][1].get("pts", 0),
+        "is_playoff": bool(g.get("playoffs")),
+        "overtimes": g.get("overtimes", 0) or 0,
+        "game_date": f"{g.get('season')} · Day {g.get('day', 0)}",
+    }
+    rows = _standings_rows(cfg)
+    divs = {t["division"] for t in rows if t["name"] in (game["home_name"], game["away_name"])}
     return {
-        "game": {
-            "id": g["gid"],
-            "home_name": home.get("name", "?"), "home_abbrev": home.get("abbrev", ""),
-            "away_name": away.get("name", "?"), "away_abbrev": away.get("abbrev", ""),
-            "home_team_id": home_tid, "away_team_id": away_tid,
-            "home_score": g["teams"][0].get("pts", 0),
-            "away_score": g["teams"][1].get("pts", 0),
-            "is_playoff": bool(g.get("playoffs")),
-            "overtimes": g.get("overtimes", 0) or 0,
-            "game_date": f"{g.get('season')} · Day {g.get('day', 0)}",
-        },
+        "game": game,
         "skaters": skaters,
         "goalies": goalies,
         "scoring_summary": scoring,
-        # raw team box totals for the head-to-head bars
-        "team_box": {"home": g["teams"][0], "away": g["teams"][1]},
+        "duel": z.duel(g["teams"][1], g["teams"][0], _DUEL_PAIRS),  # away, home
+        "ladder": [t for t in rows if t["division"] in divs],
     }

@@ -114,3 +114,58 @@ render/upload tests; the system `blinker` blocks a normal `pip install flask`.)
    and box-score lines — without it you get standings + season leaders only).
 2. `curl -X PUT -H "Authorization: Bearer $HOCKEY_SYNC_TOKEN" --data-binary @league.json https://<hub>/upload/hockey`
 3. Re-export + re-upload after each play session.
+
+---
+
+## Multi-league expansion + Basketball (2026-06-14)
+
+The single-file-per-sport wiring was generalized to a **feed registry**, because
+each sport needs several leagues (like the other sims) — Hockey = NHL + PWHL,
+pro Basketball = NBA + WNBA, men's/women's college basketball as their own sport
+tabs, softball on its own. The site's existing `?sport=&league=` catalog already
+supports a per-sport league dropdown, so this is a data-layer change.
+
+**Architecture.** `adapters/zengm_feeds.py` holds a `FEEDS` list — each entry is
+`{key, sport, league, env, engine}`, one ZenGM League File per league. `engine`
+(`rink` | `basketball`) selects the adapter module, the standings `kind`, and the
+box-score template. Both engine adapters (`zengm_rink.py`, `basketball.py`) now
+expose the **same feed-cfg surface** — `recent_scores(cfg)`, `standings(cfg)`
+(returns catalog-ready league dicts incl. `kind`), `leader_boards(cfg)`,
+`game_detail(cfg, gid)` (duel + ladder baked in), `league_label(cfg)` — so
+`app.py` loops feeds grouped by sport with no per-sport special-casing. One game
+route serves all of them: `/game/zg/<key>/<gid>`. Upload is per league key
+(`/upload/pwhl`, `/upload/nba`, …); the feed `key` is the URL slug. The
+feed-configured league name (NHL/PWHL) is authoritative for the dropdown label,
+not the in-file name.
+
+- `hockey.py` → `zengm_rink.py`; `game_hockey.html` → `game_zgmh.html` (dynamic
+  `{{ game.sport_label }}`). New `adapters/basketball.py` + `game_basketball.html`
+  (MIN/FG/3P/FT/REB/AST/STL/BLK/TOV/PF/PTS); basketball reuses the `baseball`
+  standings kind (W/L/Pct/GB by conference→division). `newsroom.build_wire` takes
+  one `zengm_scores` list; added a basketball court pixel-art scene + rink-reskin
+  aliases.
+
+**Verified** against real exports: PWHL (hockey) + NBA (BBGM, 1231 games) +
+Women's NCAA D1 (BBGM, 5573 games). All pages render; the Hockey dropdown shows
+NHL + PWHL; basketball standings split East/West; SGA 32.5 PPG (NBA), Ashley
+Carter 26.1 PPG (W-NCAA); generic game route + unknown-key 404 confirmed; the
+three existing sims still render.
+
+**⚠️ Memory caveat (open).** The mtime cache holds each parsed league file in
+RAM. Small leagues are cheap (PWHL ~7 MB; NBA 72 MB → ~300 MB), but the Women's
+NCAA D1 file (351 teams **with box scores**) is **266 MB on disk → ~1.3 GB
+resident** when loaded — even just to read standings, because the whole file is
+parsed. With men's college too, a small hub would OOM. Options to resolve:
+(a) export the big college leagues **without Box Scores** (standings + season
+leaders only — far smaller), (b) host on a larger instance, or (c) add a
+SQLite-conversion path for large feeds so queries don't hold the whole league in
+memory. Pro leagues (~30 teams) are fine as-is. Decision pending with the user.
+
+### Current league keys / env vars
+
+`nhl`→`NHL_LEAGUE_FILE`, `pwhl`→`PWHL_LEAGUE_FILE`, `nba`→`NBA_LEAGUE_FILE`,
+`wnba`→`WNBA_LEAGUE_FILE`, `cbb-men`→`CBB_MEN_LEAGUE_FILE`,
+`cbb-women`→`CBB_WOMEN_LEAGUE_FILE`, `box-lacrosse`→`BOX_LACROSSE_LEAGUE_FILE`,
+`indoor-soccer`→`INDOOR_SOCCER_LEAGUE_FILE`, `floorball`→`FLOORBALL_LEAGUE_FILE`.
+Upload: `PUT /upload/<key>` with `Bearer $<KEY>_SYNC_TOKEN` (or the shared
+`SYNC_TOKEN`). Softball (ZGMB engine) still pending a played export.

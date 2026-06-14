@@ -151,21 +151,19 @@
         {% endif %}
       </section>
 
+      {% for sec in zengm_sections %}
       <section>
-        <h2 class="sect">Hockey</h2>
-        {% if not hockey_configured %}<div class="empty-note">Not configured</div>
-        {% elif not hockey_scores %}<div class="empty-note">No games yet</div>
-        {% else %}
-        {% for league, games in hockey_scores | groupby('league') %}
-        <h3 class="subsect">{{ league }}</h3>
+        <h2 class="sect">{{ sec.sport }}</h2>
+        {% for lg in sec.leagues %}
+        {% if sec.leagues | length > 1 %}<h3 class="subsect">{{ lg.league }}</h3>{% endif %}
         <div class="card-grid">
-          {% for g in games %}
-          {{ scorecard(url_for('game_hockey', gid=g.id), g.away_name, g.home_name, g.away_score, g.home_score, 'Playoffs' if g.is_playoff else 'Final') }}
+          {% for g in lg.scores %}
+          {{ scorecard('/game/zg/' ~ g.key ~ '/' ~ g.id, g.away_name, g.home_name, g.away_score, g.home_score, 'Playoffs' if g.is_playoff else 'Final') }}
           {% endfor %}
         </div>
         {% endfor %}
-        {% endif %}
       </section>
+      {% endfor %}
     </div>
   </div>
 

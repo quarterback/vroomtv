@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ game.away_abbrev }} {{ game.away_score }}–{{ game.home_score }} {{ game.home_abbrev }} — Rocky Mountain News{% endblock %}
+{% block content %}
+
+<div class="game-header">
+  <span class="kicker">Basketball &middot; {{ game.game_date }}{% if game.is_playoff %} &middot; Playoffs{% endif %}{% if game.overtimes %} &middot; {% if game.overtimes > 1 %}{{ game.overtimes }}OT{% else %}OT{% endif %}{% endif %}</span>
+  <div class="matchup">
+    <div class="side {{ 'won' if game.away_score > game.home_score else 'lost' }}">
+      <span class="team">{{ game.away_name }}</span><span class="big">{{ game.away_score }}</span>
+    </div>
+    <span class="status">Final{% if game.overtimes %}/OT{% endif %}</span>
+    <div class="side {{ 'won' if game.home_score > game.away_score else 'lost' }}">
+      <span class="big">{{ game.home_score }}</span><span class="team">{{ game.home_name }}</span>
+    </div>
+  </div>
+</div>
+
+{% for label, team_id in [(game.away_name, game.away_team_id), (game.home_name, game.home_team_id)] %}
+{% set side_players = players | selectattr('team_id', 'equalto', team_id) | list %}
+{% if side_players %}
+<section>
+  <h2 class="sect">{{ label }}</h2>
+  <div class="table-scroll"><table class="data-table full">
+    <thead><tr><th>Player</th><th>Pos</th><th class="n">MIN</th><th class="n">FG</th><th class="n">3P</th><th class="n">FT</th><th class="n">REB</th><th class="n">AST</th><th class="n">STL</th><th class="n">BLK</th><th class="n">TOV</th><th class="n">PF</th><th class="n">PTS</th></tr></thead>
+    <tbody>
+    {% for p in side_players %}
+    <tr><td class="t">{{ p.name }}</td><td>{{ p.pos or '' }}</td><td class="n">{{ p.min }}</td><td class="n">{{ p.fg }}-{{ p.fga }}</td><td class="n">{{ p.tp }}-{{ p.tpa }}</td><td class="n">{{ p.ft }}-{{ p.fta }}</td><td class="n">{{ p.reb }}</td><td class="n">{{ p.ast }}</td><td class="n">{{ p.stl }}</td><td class="n">{{ p.blk }}</td><td class="n">{{ p.tov }}</td><td class="n">{{ p.pf }}</td><td class="n"><b>{{ p.pts }}</b></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+{% endfor %}
+
+{% if duel %}
+<section>
+  <h2 class="sect">{{ game.away_name }} vs {{ game.home_name }}</h2>
+  <div class="duel">
+    {% for s in duel %}
+    <div class="duel-row">
+      <span class="duel-label">{{ s.label }}</span>
+      <div class="duel-line">
+        <span class="duel-num">{{ s.a }}</span>
+        <div class="duel-bar"><i style="width:{{ s.a_pct }}%"></i></div>
+        <span class="duel-num">{{ s.b }}</span>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="duel-key"><span class="k-away">▮ {{ game.away_name }}</span><span class="k-home">▮ {{ game.home_name }}</span></div>
+  </div>
+</section>
+{% endif %}
+
+{% if ladder %}
+<section>
+  <h2 class="sect">Standings</h2>
+  <div class="table-grid">
+    {% for division, teams in ladder | groupby('division') %}
+    <div class="table-scroll"><table class="data-table">
+      <thead><tr><th>{{ division }}</th><th class="n">W</th><th class="n">L</th></tr></thead>
+      <tbody>
+      {% for t in teams | sort(attribute='wins', reverse=true) %}
+      <tr{% if t.name in (game.home_name, game.away_name) %} class="hl"{% endif %}>
+          <td class="t">{{ t.name }}</td><td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

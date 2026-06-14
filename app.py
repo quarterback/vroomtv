@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from urllib.parse import quote
 from flask import Flask, Response, render_template, abort, jsonify, request
-from adapters import baseball, viperball, tennis, hockey, desk
+from adapters import baseball, viperball, tennis, zengm_feeds, desk
 import newsroom
 import sync
 
@@ -14,6 +14,14 @@ sync.start_timer()
 from picks import pfs_bp  # noqa: E402
 app.register_blueprint(pfs_bp)
 app.secret_key = os.environ.get("SECRET_KEY", "pfs-dev-secret-change-in-prod")
+
+# upload/download key -> env var holding its data file. The three SQLite sims
+# sync over HTTP; every ZenGM league (zengm_feeds) is an uploaded JSON file,
+# one per league key, so /download serves those as application/json.
+_FEED_ENV = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
+             "tennis": "TENNIS_DB"}
+_FEED_ENV.update({f["key"]: f["env"] for f in zengm_feeds.FEEDS})
+_JSON_FEEDS = {f["key"] for f in zengm_feeds.FEEDS}
 
 
 def _feed_auth_ok(sport: str, write: bool = False) -> bool:
@@ -26,7 +34,8 @@ def _feed_auth_ok(sport: str, write: bool = False) -> bool:
     sims restore themselves from."""
     supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip() \
         or request.args.get("token", "")
-    valid = [t for t in (os.environ.get(f"{sport.upper()}_SYNC_TOKEN"),
+    env = sport.upper().replace("-", "_")  # box-lacrosse -> BOX_LACROSSE_SYNC_TOKEN
+    valid = [t for t in (os.environ.get(f"{env}_SYNC_TOKEN"),
                          os.environ.get("SYNC_TOKEN")) if t]
     if not valid:
         return not write
@@ -41,9 +50,7 @@ def upload_db(sport: str):
         curl -X POST --data-binary @data/viperball.db \\
              -H "Authorization: Bearer $TOKEN" https://<hub>/upload/viperball
     """
-    dest_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
-                "tennis": "TENNIS_DB",
-                "hockey": "HOCKEY_LEAGUE_FILE"}.get(sport)
+    dest_env = _FEED_ENV.get(sport)
     if not dest_env or not _feed_auth_ok(sport, write=True):
         abort(404)
     dest = os.environ.get(dest_env)
@@ -74,15 +81,13 @@ def download_db(sport: str):
              https://<hub>/download/viperball -o /data/viperball.db
     """
     from flask import send_file
-    src_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
-               "tennis": "TENNIS_DB",
-               "hockey": "HOCKEY_LEAGUE_FILE"}.get(sport)
+    src_env = _FEED_ENV.get(sport)
     if not src_env or not _feed_auth_ok(sport):
         abort(404)
     src = os.environ.get(src_env)
     if not src or not os.path.exists(src):
         abort(404)
-    mimetype = "application/json" if sport == "hockey" else "application/x-sqlite3"
+    mimetype = "application/json" if sport in _JSON_FEEDS else "application/x-sqlite3"
     return send_file(src, mimetype=mimetype,
                      as_attachment=True, download_name=os.path.basename(src))
 
@@ -135,15 +140,25 @@ def _ticker(per_sport: int = 8) -> list[dict]:
             "note": "Final",
             "url": f"/game/tennis/{g['source']}/{g['id']}",
         })
-    for g in hockey.get_recent_scores(limit=per_sport):
-        items.append({
-            "sport": "Hockey", "league": g["league"],
-            "away": g["away_abbrev"], "home": g["home_abbrev"],
-            "away_score": g["away_score"], "home_score": g["home_score"],
-            "note": "Playoffs" if g["is_playoff"] else "Final",
-            "url": f"/game/hockey/{g['id']}",
-        })
+    for feed in zengm_feeds.enabled():
+        for g in zengm_feeds.module(feed).recent_scores(feed, limit=per_sport):
+            items.append({
+                "sport": g["sport_label"], "league": g["league"],
+                "away": g["away_abbrev"], "home": g["home_abbrev"],
+                "away_score": g["away_score"], "home_score": g["home_score"],
+                "note": "Playoffs" if g["is_playoff"] else "Final",
+                "url": f"/game/zg/{g['key']}/{g['id']}",
+            })
     return items
+
+
+def _zengm_scores(limit: int = 15) -> list[dict]:
+    """Flat list of recent scores across every enabled ZenGM league feed,
+    each item tagged with sport_label + key (for the wire and front page)."""
+    out = []
+    for feed in zengm_feeds.enabled():
+        out.extend(zengm_feeds.module(feed).recent_scores(feed, limit=limit))
+    return out
 
 
 @app.context_processor
@@ -174,10 +189,20 @@ def index():
     baseball_scores = baseball.get_recent_scores()
     viperball_scores = viperball.get_recent_scores()
     tennis_scores = tennis.get_recent_scores()
-    hockey_scores = hockey.get_recent_scores()
+    # ZenGM front-page sections: one per sport, each with its leagues' scores.
+    zengm_sections = []
+    for sport in zengm_feeds.sports():
+        leagues = []
+        for feed in zengm_feeds.feeds_for(sport):
+            mod = zengm_feeds.module(feed)
+            sc = mod.recent_scores(feed)
+            if sc:
+                leagues.append({"league": mod.league_label(feed), "scores": sc})
+        if leagues:
+            zengm_sections.append({"sport": sport, "leagues": leagues})
     articles = baseball.get_news(limit=5)
     wire = newsroom.build_wire(baseball_scores, viperball_scores, tennis_scores,
-                               hockey_scores=hockey_scores)
+                               zengm_scores=_zengm_scores())
     desk_articles = desk.all_articles()
     # Placement: desk "lead" beats the gazette + the wire; "featured"
     # slots into the brief grid; "rail"/"wire" go to the sidebar list.
@@ -193,11 +218,10 @@ def index():
         baseball_extra=baseball.get_extra_scores(),
         viperball_scores=viperball_scores,
         tennis_scores=tennis_scores,
-        hockey_scores=hockey_scores,
+        zengm_sections=zengm_sections,
         baseball_configured=bool(os.environ.get("BASEBALL_DB")),
         viperball_configured=bool(os.environ.get("VIPERBALL_DB")),
         tennis_configured=bool(os.environ.get("TENNIS_DB")),
-        hockey_configured=bool(os.environ.get("HOCKEY_LEAGUE_FILE")),
     )
 
 
@@ -209,11 +233,10 @@ def news():
     baseball_scores = baseball.get_recent_scores()
     viperball_scores = viperball.get_recent_scores()
     tennis_scores = tennis.get_recent_scores()
-    hockey_scores = hockey.get_recent_scores()
     wire = newsroom.build_wire(baseball_scores, viperball_scores,
                                tennis_scores, briefs=30,
-                               hockey_scores=hockey_scores)
-    by_sport = {"Baseball": [], "Viperball": [], "Tennis": [], "Hockey": []}
+                               zengm_scores=_zengm_scores())
+    by_sport: dict = {}
     items = ([wire["lead"]] if wire.get("lead") else []) + wire.get("briefs", [])
     for it in items:
         by_sport.setdefault(it["sport"], []).append(it)
@@ -272,11 +295,12 @@ def standings():
         catalog.append({"sport": "Tennis", "leagues": [
             {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
              "teams": lg["teams"]} for lg in tn]})
-    hk = hockey.get_standings()
-    if hk:
-        catalog.append({"sport": "Hockey", "leagues": [
-            {"label": lg["league"], "kind": "hockey", "tier": lg["tier"],
-             "teams": lg["teams"]} for lg in hk]})
+    for sport in zengm_feeds.sports():
+        leagues = []
+        for feed in zengm_feeds.feeds_for(sport):
+            leagues.extend(zengm_feeds.module(feed).standings(feed))
+        if leagues:
+            catalog.append({"sport": sport, "leagues": leagues})
     portal = tennis.get_portal_universes()
     if portal:
         # Portal rankings replace the basic W-L for NCAA divisions with the
@@ -423,20 +447,22 @@ def scores():
                  for g in games]}
             for label, games in by_tn.items()]})
 
-    hk = hockey.get_recent_scores(limit=80)
-    by_hk: dict = {}
-    for g in hk:
-        by_hk.setdefault(g["league"], []).append(g)
-    if by_hk:
-        catalog.append({"sport": "Hockey", "leagues": [
-            {"label": label, "tier": "Pro", "games": [
+    for sport in zengm_feeds.sports():
+        sleagues = []
+        for feed in zengm_feeds.feeds_for(sport):
+            mod = zengm_feeds.module(feed)
+            sc = mod.recent_scores(feed, limit=120)
+            if not sc:
+                continue
+            sleagues.append({"label": mod.league_label(feed), "tier": "Pro", "games": [
                 {"away": g["away_name"], "home": g["home_name"],
                  "ascore": g["away_score"], "hscore": g["home_score"],
-                 "url": f"/game/hockey/{g['id']}",
+                 "url": f"/game/zg/{feed['key']}/{g['id']}",
                  "group": g["game_date"], "conf": "",
                  "note": "Playoffs" if g["is_playoff"] else ""}
-                for g in games]}
-            for label, games in by_hk.items()]})
+                for g in sc]})
+        if sleagues:
+            catalog.append({"sport": sport, "leagues": sleagues})
 
     for c in catalog:
         c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
@@ -475,10 +501,16 @@ def leaders():
     tn_leagues = _tennis_leader_boards()
     if tn_leagues:
         catalog.append({"sport": "Tennis", "leagues": tn_leagues})
-    hk_boards = hockey.get_leader_boards()
-    if hk_boards:
-        catalog.append({"sport": "Hockey", "leagues": [
-            {"label": hockey.league_label(), "tier": "Pro", "boards": hk_boards}]})
+    for sport in zengm_feeds.sports():
+        leagues = []
+        for feed in zengm_feeds.feeds_for(sport):
+            mod = zengm_feeds.module(feed)
+            boards = mod.leader_boards(feed)
+            if boards:
+                leagues.append({"label": mod.league_label(feed), "tier": "Pro",
+                                "boards": boards})
+        if leagues:
+            catalog.append({"sport": sport, "leagues": leagues})
     for c in catalog:
         c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
     entry, sel = _pick(catalog)
@@ -551,22 +583,17 @@ def game_baseball(game_id: int):
     return render_template("game_baseball.html", **detail)
 
 
-@app.route("/game/hockey/<int:gid>")
-def game_hockey(gid: int):
-    detail = hockey.get_game_detail(gid)
+@app.route("/game/zg/<key>/<int:gid>")
+def game_zg(key: str, gid: int):
+    """One game route for every ZenGM league feed. The feed's engine selects
+    the adapter + box-score template; duel + ladder are built in game_detail."""
+    feed = zengm_feeds.by_key(key)
+    if not feed:
+        abort(404)
+    detail = zengm_feeds.module(feed).game_detail(feed, gid)
     if not detail:
         abort(404)
-    g = detail["game"]
-    tb = detail.pop("team_box", {"home": {}, "away": {}})
-    detail["duel"] = _duel(
-        tb["away"], tb["home"],
-        [("Shots", "s"), ("Hits", "hit"), ("Blocks", "blk"),
-         ("PIM", "pim"), ("Faceoff wins", "fow")])
-    rows = [t for lg in hockey.get_standings() for t in lg["teams"]]
-    divs = {t["division"] for t in rows
-            if t["name"] in (g["home_name"], g["away_name"])}
-    detail["ladder"] = [t for t in rows if t["division"] in divs]
-    return render_template("game_hockey.html", **detail)
+    return render_template(zengm_feeds.template(feed), **detail)
 
 
 @app.route("/game/viperball/<save_key>/<int:week>/<path:matchup_key>")

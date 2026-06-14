@@ -93,6 +93,21 @@ def league_label(league: dict, fallback: str = "League") -> str:
     return fallback
 
 
+def duel(stats_a: dict, stats_b: dict, pairs: list) -> list[dict]:
+    """ABC-style head-to-head bars: [{label, a, b, a_pct}] for each stat
+    present on either side (a = away, b = home, matching the templates)."""
+    out = []
+    for label, key in pairs:
+        a, b = stats_a.get(key), stats_b.get(key)
+        if a is None and b is None:
+            continue
+        a, b = float(a or 0), float(b or 0)
+        total = a + b
+        out.append({"label": label, "a": f"{a:g}", "b": f"{b:g}",
+                    "a_pct": round(100 * a / total) if total else 50})
+    return out
+
+
 def clock_mmss(clock: float) -> str:
     """ZenGM stores a goal's clock as *minutes remaining* in the period
     (0–periodLength). Render it as M:SS."""

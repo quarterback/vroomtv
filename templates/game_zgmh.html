@@ -3,7 +3,7 @@
 {% block content %}
 
 <div class="game-header">
-  <span class="kicker">Hockey &middot; {{ game.game_date }}{% if game.is_playoff %} &middot; Playoffs{% endif %}{% if game.overtimes %} &middot; {% if game.overtimes > 1 %}{{ game.overtimes }}OT{% else %}OT{% endif %}{% endif %}</span>
+  <span class="kicker">{{ game.sport_label }} &middot; {{ game.game_date }}{% if game.is_playoff %} &middot; Playoffs{% endif %}{% if game.overtimes %} &middot; {% if game.overtimes > 1 %}{{ game.overtimes }}OT{% else %}OT{% endif %}{% endif %}</span>
   <div class="matchup">
     <div class="side {{ 'won' if game.away_score > game.home_score else 'lost' }}">
       <span class="team">{{ game.away_name }}</span><span class="big">{{ game.away_score }}</span>

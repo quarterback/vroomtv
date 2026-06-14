@@ -65,7 +65,7 @@ def _item(sport: str, league: str, home: str, away: str,
 
 def build_wire(baseball_scores: list, viperball_scores: list,
                tennis_scores: list, briefs: int = 8,
-               hockey_scores: list | None = None) -> dict:
+               zengm_scores: list | None = None) -> dict:
     """{"lead": item|None, "briefs": [items]} from raw adapter scores."""
     items = []
     for g in baseball_scores:
@@ -84,10 +84,10 @@ def build_wire(baseball_scores: list, viperball_scores: list,
             "Tennis", g["league"], g["home_name"], g["away_name"],
             g["home_points"], g["away_points"],
             f"/game/tennis/{g['source']}/{g['id']}"))
-    for g in (hockey_scores or []):
+    for g in (zengm_scores or []):
         items.append(_item(
-            "Hockey", g["league"], g["home_name"], g["away_name"],
-            g["home_score"], g["away_score"], f"/game/hockey/{g['id']}",
+            g["sport_label"], g["league"], g["home_name"], g["away_name"],
+            g["home_score"], g["away_score"], f"/game/zg/{g['key']}/{g['id']}",
             extra="Playoffs" if g.get("is_playoff") else ""))
     if not items:
         return {"lead": None, "briefs": []}
@@ -194,7 +194,27 @@ _SCENES = {
             "..s...s...s...",
         ],
     },
+    "basketball": {
+        # hardwood half-court: paint, free-throw arc, hoop, ball
+        "bg": ("#b5722e", "#c98842"),
+        "colors": {"l": "#f4f1ea", "p": "#a85a23", "h": "#e8552a", "b": "#e0883a"},
+        "map": [
+            "llllllllllllll",
+            "l....pppp....l",
+            "l....p..p..b.l",
+            "l..h.p..p....l",
+            "l....p..p....l",
+            "l..h.p..p....l",
+            "l....p..p....l",
+            "l....pppp....l",
+            "llllllllllllll",
+        ],
+    },
 }
+
+# The hockey-engine reskins share the rink scene; basketball stands alone.
+for _alias in ("box lacrosse", "indoor soccer", "floorball"):
+    _SCENES[_alias] = _SCENES["hockey"]
 
 
 def pixel_art_svg(seed: int, sport: str = "", cols: int = 14, rows: int = 9,
