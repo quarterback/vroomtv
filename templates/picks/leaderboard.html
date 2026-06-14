@@ -98,9 +98,9 @@
 
 {% block content %}
 <div class="lb-header">
-  <div class="lb-headline">Weekly Leaderboard</div>
+  <div class="lb-headline">Season Standings</div>
   <div class="lb-sub">
-    {{ week_key }} · {{ board | length }}
+    Season {{ season }} · cumulative · {{ board | length }}
     {% if board | length >= 100 %}+{% endif %}
     competitors shown
   </div>
@@ -115,7 +115,7 @@
   <div class="lb-divider"></div>
   <div class="lb-stat">
     <span class="lb-stat-val">{{ "{:,}".format(my_row.total_points) }}</span>
-    <span class="lb-stat-lab">Points</span>
+    <span class="lb-stat-lab">Score</span>
   </div>
   <div class="lb-stat">
     <span class="lb-stat-val">{{ my_row.picks_correct }}/{{ my_row.picks_total }}</span>
@@ -129,7 +129,7 @@
 {% elif my_rank is none %}
 <div class="lb-my-rank" style="border-color:var(--border)">
   <div style="color:var(--text-muted); font-size:.9rem;">
-    Make your first picks this week to appear on the leaderboard.
+    Make picks and settle a week to appear in the season standings.
   </div>
 </div>
 {% endif %}
@@ -137,7 +137,7 @@
 {% if not board %}
 <div class="lb-table-wrap">
   <div class="empty-board">
-    No results yet — the Commissioner needs to settle this week's games first.
+    No results yet — the Commissioner needs to settle a week's games first.
   </div>
 </div>
 {% else %}
@@ -147,7 +147,7 @@
       <tr>
         <th style="width:52px">#</th>
         <th>Player</th>
-        <th class="right">Points</th>
+        <th class="right">Score</th>
         <th class="right">Picks</th>
         <th>Win Rate</th>
       </tr>

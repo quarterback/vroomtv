@@ -2,7 +2,7 @@
 from __future__ import annotations
 import random
 from . import db
-from .slate import ZORAS_PER_WEEK, current_week
+from .slate import POINTS_PER_SEASON, season_prefix
 
 
 def settle_week(week_key: str) -> dict:
@@ -101,13 +101,71 @@ def _rebuild_leaderboard(week_key: str) -> None:
            r["picks_total"] or 0) for r in rows])
 
 
-def reset_week(new_week_key: str) -> dict:
-    """Restore 1,000 Zoras for the new week."""
-    db.execute(
-        "INSERT OR REPLACE INTO human_wallet (week_key, zoras_remaining) VALUES (?,?)",
-        (new_week_key, ZORAS_PER_WEEK)
-    )
-    return {"ok": True, "week_key": new_week_key, "zoras": ZORAS_PER_WEEK}
+def advance_week() -> dict:
+    """Move to the next week of the current season.
+
+    The season bankroll carries over — only the slate is fresh (empty until the
+    commissioner refreshes it). Returns the new season/week.
+    """
+    db.execute("UPDATE season_state SET week = week + 1 WHERE id=1")
+    s = db.fetchone("SELECT season, week FROM season_state WHERE id=1")
+    return {"ok": True, "season": s["season"], "week": s["week"],
+            "week_key": f"S{s['season']}-W{s['week']:02d}"}
+
+
+def new_season() -> dict:
+    """Wipe all play data and start a brand-new season at Week 1.
+
+    Clears slates, picks, leaderboards, and the bankroll, then resets the season
+    pointer. No history is kept — this is a clean slate.
+    """
+    # picks reference weekly_slate via a foreign key, so clear them first.
+    db.execute("DELETE FROM picks")
+    db.execute("DELETE FROM weekly_leaderboard")
+    db.execute("DELETE FROM weekly_slate")
+    db.execute("DELETE FROM human_wallet")
+    db.execute("UPDATE season_state SET season = 1, week = 1 WHERE id=1")
+    return {"ok": True, "points": POINTS_PER_SEASON}
+
+
+def get_season_leaderboard(season: int | None = None, limit: int = 100) -> list[dict]:
+    """Cumulative season standings across every settled week of the season."""
+    prefix = season_prefix(season)
+    rows = db.fetchall("""
+        SELECT lb.participant_id, p.username, p.is_human,
+               SUM(lb.total_points)  AS total_points,
+               SUM(lb.picks_correct) AS picks_correct,
+               SUM(lb.picks_total)   AS picks_total
+        FROM weekly_leaderboard lb
+        JOIN participants p ON p.id = lb.participant_id
+        WHERE lb.week_key LIKE ?
+        GROUP BY lb.participant_id
+        ORDER BY total_points DESC, picks_correct DESC
+        LIMIT ?
+    """, (prefix + "%", limit))
+    out = []
+    for i, r in enumerate(rows, 1):
+        pct = round(r["picks_correct"] / r["picks_total"] * 100) if r["picks_total"] else 0
+        out.append({**r, "rank": i, "win_pct": pct})
+    return out
+
+
+def get_season_human_rank(season: int | None, human_id: int) -> int | None:
+    """The human's overall rank across the whole season."""
+    prefix = season_prefix(season)
+    rows = db.fetchall("""
+        SELECT lb.participant_id,
+               SUM(lb.total_points)  AS total_points,
+               SUM(lb.picks_correct) AS picks_correct
+        FROM weekly_leaderboard lb
+        WHERE lb.week_key LIKE ?
+        GROUP BY lb.participant_id
+        ORDER BY total_points DESC, picks_correct DESC
+    """, (prefix + "%",))
+    for i, r in enumerate(rows, 1):
+        if r["participant_id"] == human_id:
+            return i
+    return None
 
 
 def get_leaderboard(week_key: str, limit: int = 50) -> list[dict]:

@@ -187,7 +187,7 @@
   <div>
     <div class="slate-headline">This Week's Slate</div>
     <div style="margin-top:.4rem; color:var(--text-muted); font-size:.85rem;">
-      Pick winners. Spend Zoras. Climb the board.
+      Pick winners. Spend points. Climb the board.
     </div>
   </div>
   <div class="slate-meta">
@@ -196,7 +196,7 @@
       <span>{{ summary.human_picks }}</span> of <span>{{ summary.total_games }}</span> games picked
     </div>
     <div class="stat-pill">
-      <span>{{ "{:,}".format(zoras) }}</span> Zoras left · <span>{{ zora_cost }}</span> per pick
+      <span>{{ "{:,}".format(points) }}</span> points left · <span>{{ pick_cost }}</span> per pick
     </div>
   </div>
 </div>
@@ -243,7 +243,7 @@
             <div class="game-top">
               <div>
                 <div class="point-value">{{ "{:,}".format(g.point_value) }}</div>
-                <div class="point-label">pts if correct</div>
+                <div class="point-label">score if correct</div>
               </div>
             </div>
 
@@ -276,7 +276,7 @@
                 {% endfor %}
               </div>
               {% if is_picked and g.correct %}
-              <div class="points-earned">+{{ "{:,}".format(g.points_earned) }} pts earned</div>
+              <div class="points-earned">+{{ "{:,}".format(g.points_earned) }} score</div>
               {% endif %}
             {% elif is_picked %}
               <!-- Already picked, pending result -->
@@ -294,7 +294,7 @@
                 <input type="hidden" name="slate_id" value="{{ g.id }}">
                 {% for team in [g.away_team, g.home_team] %}
                   <button type="submit" name="picked_team" value="{{ team }}" class="pick-btn"
-                    {% if zoras < zora_cost %}disabled title="Not enough Zoras"{% endif %}>
+                    {% if points < pick_cost %}disabled title="Not enough points"{% endif %}>
                     {{ team | truncate(14, killwords=True, end='…') }}
                   </button>
                 {% endfor %}

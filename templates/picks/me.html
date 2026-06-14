@@ -121,22 +121,22 @@
 {% block content %}
 <div style="margin-bottom:2rem;">
   <div style="font-family:'Boska',serif;font-weight:900;font-size:2.2rem;color:var(--text);">My Picks</div>
-  <div style="color:var(--text-muted);font-size:.9rem;margin-top:.3rem;">{{ week_key }} · Commissioner</div>
+  <div style="color:var(--text-muted);font-size:.9rem;margin-top:.3rem;">Season {{ season }} · {{ week_key }} · Commissioner</div>
 </div>
 
 <!-- Stats grid -->
 <div class="me-grid">
-  <!-- Zora wallet -->
+  <!-- Points bankroll -->
   <div class="stat-card">
-    <div class="stat-card-title">Zora Balance — {{ week_key }}</div>
-    <div class="stat-big">{{ "{:,}".format(zoras) }}</div>
+    <div class="stat-card-title">Points — Season {{ season }} Bankroll</div>
+    <div class="stat-big">{{ "{:,}".format(points) }}</div>
     <div class="zora-bar-wrap">
       <div class="zora-bar-track">
-        <div class="zora-bar-fill" style="width:{{ [(zoras / zora_total * 100), 100] | min | int }}%"></div>
+        <div class="zora-bar-fill" style="width:{{ [(points / points_total * 100), 100] | min | int }}%"></div>
       </div>
       <div class="zora-bar-labels">
-        <span>{{ "{:,}".format(zoras) }} remaining</span>
-        <span>{{ "{:,}".format(zora_total) }} weekly</span>
+        <span>{{ "{:,}".format(points) }} remaining</span>
+        <span>{{ "{:,}".format(points_total) }} for the season</span>
       </div>
     </div>
     <div class="stat-row" style="margin-top:1rem;">
@@ -155,17 +155,17 @@
     </div>
   </div>
 
-  <!-- This week points + rank -->
+  <!-- This week score + season rank -->
   <div class="stat-card">
     <div class="stat-card-title">This Week</div>
     <div class="stat-big">{{ "{:,}".format(stats.week.total_points) }}</div>
     <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-top:.2rem;">
-      points
+      score
     </div>
     <div class="stat-row" style="margin-top:.85rem;">
       <div class="stat-item">
         <span class="stat-val">{{ '#' ~ my_rank if my_rank else '—' }}</span>
-        <span class="stat-lab">Current Rank</span>
+        <span class="stat-lab">Season Rank</span>
       </div>
       <div class="stat-item">
         <span class="stat-val">{{ stats.career.weeks_played }}</span>
@@ -173,7 +173,7 @@
       </div>
       <div class="stat-item">
         <span class="stat-val">{{ stats.career.win_pct }}%</span>
-        <span class="stat-lab">Career Win Rate</span>
+        <span class="stat-lab">Season Win Rate</span>
       </div>
     </div>
   </div>
@@ -223,7 +223,7 @@
         <div class="pick-your">Your pick: <strong>{{ p.picked_team }}</strong></div>
       </div>
       <div style="text-align:right;flex-shrink:0;">
-        <div class="pick-pv">{{ "{:,}".format(p.point_value) }} pts available</div>
+        <div class="pick-pv">{{ "{:,}".format(p.point_value) }} score available</div>
         {% if p.settled %}
           {% if p.correct %}
             <div class="pick-pts">+{{ "{:,}".format(p.points_earned) }}</div>
