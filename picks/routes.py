@@ -46,15 +46,16 @@ def index():
     week_key = _week()
     human_id = _human_id()
     games = slate_mod.get_slate(week_key, human_id)
-    zoras = slate_mod.get_wallet(week_key)
+    points = slate_mod.get_wallet()
     summary = slate_mod.slate_summary(week_key)
     return render_template(
         "picks/index.html",
         games=games,
         week_key=week_key,
-        zoras=zoras,
+        season=slate_mod.current_season(),
+        points=points,
         summary=summary,
-        zora_cost=slate_mod.ZORA_PER_PICK,
+        pick_cost=slate_mod.POINTS_PER_PICK,
     )
 
 
@@ -81,9 +82,10 @@ def leaderboard():
     _init()
     week_key = _week()
     human_id = _human_id()
-    board = settle_mod.get_leaderboard(week_key, limit=100)
-    my_rank = settle_mod.get_human_rank(week_key, human_id)
-    zoras = slate_mod.get_wallet(week_key)
+    season = slate_mod.current_season()
+    board = settle_mod.get_season_leaderboard(season, limit=100)
+    my_rank = settle_mod.get_season_human_rank(season, human_id)
+    points = slate_mod.get_wallet()
     # Find human row even if outside top 100
     my_row = next((r for r in board if r["is_human"]), None)
     return render_template(
@@ -92,7 +94,8 @@ def leaderboard():
         my_rank=my_rank,
         my_row=my_row,
         week_key=week_key,
-        zoras=zoras,
+        season=season,
+        points=points,
     )
 
 
@@ -103,9 +106,10 @@ def me():
     _init()
     week_key = _week()
     human_id = _human_id()
-    zoras = slate_mod.get_wallet(week_key)
+    season = slate_mod.current_season()
+    points = slate_mod.get_wallet()
     stats = settle_mod.get_my_stats(week_key, human_id)
-    my_rank = settle_mod.get_human_rank(week_key, human_id)
+    my_rank = settle_mod.get_season_human_rank(season, human_id)
     picks = pdb.fetchall("""
         SELECT p.picked_team, p.correct, p.points_earned,
                s.sport, s.home_team, s.away_team, s.point_value, s.settled, s.winner
@@ -125,12 +129,13 @@ def me():
     return render_template(
         "picks/me.html",
         week_key=week_key,
-        zoras=zoras,
+        season=season,
+        points=points,
         stats=stats,
         my_rank=my_rank,
         picks=picks,
         past_weeks=past_weeks,
-        zora_total=slate_mod.ZORAS_PER_WEEK,
+        points_total=slate_mod.POINTS_PER_SEASON,
     )
 
 
@@ -141,12 +146,13 @@ def commissioner():
     _init()
     week_key = _week()
     summary = slate_mod.slate_summary(week_key)
-    zoras = slate_mod.get_wallet(week_key)
+    points = slate_mod.get_wallet()
     return render_template(
         "picks/commissioner.html",
         week_key=week_key,
+        season=slate_mod.current_season(),
         summary=summary,
-        zoras=zoras,
+        points=points,
     )
 
 
@@ -179,14 +185,53 @@ def commissioner_settle():
     return redirect(url_for("pfs.commissioner"))
 
 
-@pfs_bp.route("/commissioner/reset", methods=["POST"])
-def commissioner_reset():
+@pfs_bp.route("/commissioner/new-week", methods=["POST"])
+def commissioner_new_week():
     _init()
-    week_key = _week()
-    result = settle_mod.reset_week(week_key)
+    summary = slate_mod.slate_summary(_week())
+    if summary["unsettled_games"] > 0:
+        flash(
+            "Settle the current week before starting a new one — it still has "
+            f"{summary['unsettled_games']} unsettled game"
+            f"{'s' if summary['unsettled_games'] != 1 else ''}.",
+            "error"
+        )
+        return redirect(url_for("pfs.commissioner"))
+    result = settle_mod.advance_week()
     flash(
-        f"Week {result['week_key']} reset — slate cleared and your Zora balance "
-        f"restored to {result['zoras']:,}. Refresh the slate to start a new competition.",
+        f"Started {result['week_key']}. Refresh the slate to pull this week's games — "
+        "your season points carry over.",
+        "success"
+    )
+    return redirect(url_for("pfs.commissioner"))
+
+
+@pfs_bp.route("/commissioner/end-season", methods=["POST"])
+def commissioner_end_season():
+    _init()
+    human_id = _human_id()
+    season = slate_mod.current_season()
+    board = settle_mod.get_season_leaderboard(season, limit=100)
+    my_rank = settle_mod.get_season_human_rank(season, human_id)
+    my_row = next((r for r in board if r["is_human"]), None)
+    return render_template(
+        "picks/season_over.html",
+        board=board,
+        my_rank=my_rank,
+        my_row=my_row,
+        season=season,
+        points=slate_mod.get_wallet(),
+        total_players=len(board),
+    )
+
+
+@pfs_bp.route("/commissioner/new-season", methods=["POST"])
+def commissioner_new_season():
+    _init()
+    result = settle_mod.new_season()
+    flash(
+        f"New season started — everything cleared and your points reset to "
+        f"{result['points']:,}. Refresh the slate to begin.",
         "success"
     )
     return redirect(url_for("pfs.commissioner"))

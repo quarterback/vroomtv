@@ -73,6 +73,12 @@ def ensure_schema() -> None:
             PRIMARY KEY(participant_id, week_key),
             FOREIGN KEY(participant_id) REFERENCES participants(id)
         );
+        CREATE TABLE IF NOT EXISTS season_state (
+            id      INTEGER PRIMARY KEY CHECK (id = 1),
+            season  INTEGER NOT NULL DEFAULT 1,
+            week    INTEGER NOT NULL DEFAULT 1
+        );
+        INSERT OR IGNORE INTO season_state (id, season, week) VALUES (1, 1, 1);
     """)
     conn.commit()
     conn.close()

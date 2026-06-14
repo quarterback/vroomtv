@@ -226,8 +226,8 @@
     <a href="{{ url_for('pfs.me') }}"{% if request.endpoint == 'pfs.me' %} class="active"{% endif %}>My Picks</a>
     <a href="{{ url_for('pfs.commissioner') }}"{% if request.endpoint == 'pfs.commissioner' %} class="active"{% endif %}>Commissioner</a>
     <div class="zora-chip">
-      <span class="z-label">Zoras</span>
-      <span>{{ "{:,}".format(zoras) }}</span>
+      <span class="z-label">Points</span>
+      <span>{{ "{:,}".format(points if points is defined else 0) }}</span>
     </div>
     <a class="back-link" href="{{ url_for('index') }}">← Rocky Mtn News</a>
   </nav>

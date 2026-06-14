@@ -1,20 +1,33 @@
 """PFS slate: pull completed games from all three sport adapters."""
 from __future__ import annotations
 import random
-from datetime import datetime
 
 from adapters import baseball, viperball, tennis
 from . import db
 
-ZORAS_PER_WEEK = 1000
-ZORA_PER_PICK = 20
+# Points are the player's spendable budget — one bankroll for the whole season.
+POINTS_PER_SEASON = 1000
+POINTS_PER_PICK = 20
 _POINT_MIN = 7499
 _POINT_MAX = 11205
 
 
+def current_season() -> int:
+    s = db.fetchone("SELECT season FROM season_state WHERE id=1")
+    return s["season"] if s else 1
+
+
 def current_week() -> str:
-    cal = datetime.now().isocalendar()
-    return f"{cal[0]}-W{cal[1]:02d}"
+    """The active week key, e.g. 'S1-W03'. Driven by season_state, not the calendar."""
+    s = db.fetchone("SELECT season, week FROM season_state WHERE id=1")
+    if not s:
+        return "S1-W01"
+    return f"S{s['season']}-W{s['week']:02d}"
+
+
+def season_prefix(season: int | None = None) -> str:
+    """The week_key prefix that groups all weeks belonging to a season."""
+    return f"S{current_season() if season is None else season}-"
 
 
 def _rand_points(rng: random.Random | None = None) -> int:
@@ -79,26 +92,32 @@ def _gather_games(limit: int = 50) -> list[dict]:
 
 
 def build_slate(week_key: str, max_games: int = 30) -> int:
-    """Add new completed games to the current week's slate. Returns count added."""
-    used = {r["game_id"] for r in db.fetchall("SELECT game_id FROM weekly_slate")}
-    current_count = (db.fetchone(
-        "SELECT COUNT(*) AS c FROM weekly_slate WHERE week_key=?", (week_key,)
-    ) or {"c": 0})["c"]
+    """Add new completed games to the given week's slate. Returns count added.
+
+    Games are deduped per-week (not globally), so the same completed source game
+    can appear again in a later week. The stored game_id is week-prefixed to keep
+    it globally unique while still allowing reuse across weeks.
+    """
+    used = {r["game_id"] for r in db.fetchall(
+        "SELECT game_id FROM weekly_slate WHERE week_key=?", (week_key,)
+    )}
+    current_count = len(used)
 
     candidates = _gather_games()
-    new_games = [g for g in candidates if g["game_id"] not in used]
-
     rng = random.Random()
     added = 0
-    for g in new_games:
+    for g in candidates:
         if current_count + added >= max_games:
             break
+        stored_id = f"{week_key}:{g['game_id']}"
+        if stored_id in used:
+            continue
         try:
             db.execute(
                 "INSERT OR IGNORE INTO weekly_slate "
                 "(week_key, sport, game_id, home_team, away_team, point_value, winner, settled) "
                 "VALUES (?,?,?,?,?,?,?,0)",
-                (week_key, g["sport"], g["game_id"], g["home_team"],
+                (week_key, g["sport"], stored_id, g["home_team"],
                  g["away_team"], _rand_points(rng), g["winner"])
             )
             added += 1
@@ -137,21 +156,28 @@ def get_slate(week_key: str, human_id: int) -> list[dict]:
     return out
 
 
-def get_wallet(week_key: str) -> int:
-    r = db.fetchone("SELECT zoras_remaining FROM human_wallet WHERE week_key=?", (week_key,))
-    return r["zoras_remaining"] if r else ZORAS_PER_WEEK
+def _wallet_key(season: int | None = None) -> str:
+    """The human_wallet row key for a season's bankroll, e.g. 'S1'."""
+    return f"S{current_season() if season is None else season}"
 
 
-def debit_zoras(week_key: str, amount: int = ZORA_PER_PICK) -> bool:
-    """Deduct Zoras from the human wallet. Returns False if insufficient funds."""
-    current = get_wallet(week_key)
-    if current < amount:
+def get_wallet() -> int:
+    """Points remaining in the current season's bankroll."""
+    r = db.fetchone(
+        "SELECT zoras_remaining FROM human_wallet WHERE week_key=?", (_wallet_key(),)
+    )
+    return r["zoras_remaining"] if r else POINTS_PER_SEASON
+
+
+def debit(amount: int = POINTS_PER_PICK) -> bool:
+    """Deduct points from the season bankroll. Returns False if insufficient funds."""
+    if get_wallet() < amount:
         return False
     conn = db.get_conn()
     conn.execute(
         "INSERT INTO human_wallet (week_key, zoras_remaining) VALUES (?,?) "
         "ON CONFLICT(week_key) DO UPDATE SET zoras_remaining = zoras_remaining - ?",
-        (week_key, ZORAS_PER_WEEK - amount, amount)
+        (_wallet_key(), POINTS_PER_SEASON - amount, amount)
     )
     conn.commit()
     conn.close()
@@ -180,14 +206,15 @@ def submit_pick(human_id: int, slate_id: int, week_key: str, picked_team: str) -
     if picked_team not in (game["home_team"], game["away_team"]):
         return {"ok": False, "error": "Invalid team selection."}
 
-    if not debit_zoras(week_key):
-        return {"ok": False, "error": "Not enough Zoras — you need 20 per pick."}
+    if not debit():
+        return {"ok": False,
+                "error": f"Not enough points — you need {POINTS_PER_PICK} per pick."}
 
     db.execute(
         "INSERT INTO picks (participant_id, slate_id, week_key, picked_team) VALUES (?,?,?,?)",
         (human_id, slate_id, week_key, picked_team)
     )
-    return {"ok": True, "zoras_remaining": get_wallet(week_key)}
+    return {"ok": True, "points_remaining": get_wallet()}
 
 
 def slate_summary(week_key: str) -> dict:

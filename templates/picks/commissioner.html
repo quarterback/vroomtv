@@ -46,7 +46,7 @@
 /* Action cards */
 .action-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
@@ -147,12 +147,12 @@
     <div class="status-lab">Your Picks</div>
   </div>
   <div class="status-card">
-    <div class="status-val">{{ "{:,}".format(zoras) }}</div>
-    <div class="status-lab">Zoras Left</div>
+    <div class="status-val">{{ "{:,}".format(points) }}</div>
+    <div class="status-lab">Points Left</div>
   </div>
   <div class="status-card">
     <div class="status-val" style="font-size:1.1rem;padding-top:.4rem;">{{ week_key }}</div>
-    <div class="status-lab">Current Week</div>
+    <div class="status-lab">Season {{ season }} · Week</div>
   </div>
 </div>
 
@@ -195,12 +195,25 @@
     <div class="action-icon">🔄</div>
     <div class="action-title">New Week</div>
     <div class="action-desc">
-      Clear this week's slate, picks, and leaderboard, and restore your Zora balance to 1,000.
-      Use after settling to wipe the board and start a brand-new competition — then Refresh Slate to pull fresh games.
+      Advance to the next week of the season. Past weeks stay on the season standings and your
+      points carry over — settle the current week first, then Refresh Slate for the new one.
     </div>
-    <button class="btn btn-outline" onclick="document.getElementById('reset-modal').classList.add('open')">
-      Reset Week
-    </button>
+    <form method="POST" action="{{ url_for('pfs.commissioner_new_week') }}">
+      <button type="submit" class="btn btn-outline">Start Next Week</button>
+    </form>
+  </div>
+
+  <div class="action-card">
+    <div class="action-icon">🏁</div>
+    <div class="action-title">End Season</div>
+    <div class="action-desc">
+      Close out Season {{ season }} and see the final standings — where you and the
+      {{ "{:,}".format(2000) }} AI competitors finished across every week played.
+      You can start a fresh season from there.
+    </div>
+    <form method="POST" action="{{ url_for('pfs.commissioner_end_season') }}">
+      <button type="submit" class="btn btn-gold">End Season &amp; See Standings</button>
+    </form>
   </div>
 
 </div>
@@ -216,53 +229,24 @@
       </div>
     </div>
     <div>
-      <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Zoras</div>
+      <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Points</div>
       <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">
-        You get 1,000 Zoras per week. Each pick costs 20 Zoras (max 50 picks). Spend wisely — you can't win what you don't enter.
+        You get 1,000 points for the whole season. Each pick costs 20 points (50 picks total). The bankroll carries across weeks — spend it wisely.
       </div>
     </div>
     <div>
-      <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Points</div>
+      <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Score</div>
       <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">
-        Each game has a random point value (7,499 – 11,205) set when the slate is built. Correct picks earn those points. Wrong picks earn nothing.
+        Each game has a random score value (7,499 – 11,205) set when the slate is built. Correct picks earn that score. Wrong picks earn nothing.
       </div>
     </div>
     <div>
       <div style="font-size:.72rem;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem;">Competition</div>
       <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">
-        2,000 AI competitors participate with varying skill levels. Settle the week to see where you rank.
+        2,000 AI competitors participate with varying skill levels. Play as many weeks as you like, then end the season to see your final rank.
       </div>
     </div>
   </div>
 </div>
 
-<!-- Reset confirmation modal -->
-<div class="modal-overlay" id="reset-modal">
-  <div class="modal-box">
-    <div class="modal-icon">⚠️</div>
-    <div class="modal-title">Reset Week {{ week_key }}?</div>
-    <div class="modal-body">
-      This clears the <strong>slate</strong>, all <strong>picks</strong>, and the <strong>leaderboard</strong>
-      for week <strong>{{ week_key }}</strong>, and restores your balance to
-      <strong style="color:var(--gold)">1,000 Zoras</strong>.
-      This can't be undone — settle first if you want to keep the results.
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="document.getElementById('reset-modal').classList.remove('open')">
-        Cancel
-      </button>
-      <form method="POST" action="{{ url_for('pfs.commissioner_reset') }}" style="display:inline">
-        <button type="submit" class="btn btn-danger">Yes, Reset Week</button>
-      </form>
-    </div>
-  </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-document.getElementById('reset-modal').addEventListener('click', function(e) {
-  if (e.target === this) this.classList.remove('open');
-});
-</script>
 {% endblock %}

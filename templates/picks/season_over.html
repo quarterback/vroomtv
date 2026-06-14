@@ -1,0 +1,141 @@
+{% extends "picks/base.html" %}
+{% block title %}Season {{ season }} Final — Peak Fantasy Sports{% endblock %}
+
+{% block extra_style %}
+.so-hero {
+  text-align: center;
+  padding: 2rem 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.so-flag { font-size: 3rem; margin-bottom: .5rem; }
+.so-title {
+  font-family: 'Boska', serif;
+  font-weight: 900;
+  font-size: 2.4rem;
+  color: var(--text);
+}
+.so-sub { color: var(--text-muted); font-size: .9rem; margin-top: .4rem; }
+
+.so-finish {
+  background: linear-gradient(135deg, #1a2540, #0f1a35);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
+}
+.so-rank { font-family: 'Boska', serif; font-weight: 900; font-size: 3rem; color: var(--gold); line-height: 1; }
+.so-rank-lab { font-size: .7rem; font-weight: 700; color: var(--gold-dim); text-transform: uppercase; letter-spacing: .07em; text-align: center; }
+.so-divider { width: 1px; height: 44px; background: var(--border); }
+.so-stat { display: flex; flex-direction: column; align-items: center; }
+.so-stat-val { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+.so-stat-lab { font-size: .68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+
+.lb-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 2rem; }
+.lb-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.lb-table th { background: var(--surface2); color: var(--text-muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; padding: .65rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+.lb-table th.right, .lb-table td.right { text-align: right; }
+.lb-table td { padding: .7rem 1rem; border-bottom: 1px solid rgba(255,255,255,.04); color: var(--text-dim); }
+.lb-table tr:last-child td { border-bottom: none; }
+.lb-table tr.me td { background: rgba(245,158,11,.06); color: var(--text); }
+.lb-table tr.me td.username { color: var(--gold); font-weight: 700; }
+.rank-num { font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.rank-num.top3 { color: var(--gold); }
+.pts-val { font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.so-actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem; }
+
+.so-new-note {
+  background: var(--surface);
+  border: 1px solid rgba(239,68,68,.25);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+}
+.so-new-note .nt-title { font-weight: 700; color: var(--red); margin-bottom: .35rem; font-size: .9rem; }
+.so-new-note .nt-desc { font-size: .82rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5; }
+{% endblock %}
+
+{% block content %}
+<div class="so-hero">
+  <div class="so-flag">🏁</div>
+  <div class="so-title">Season {{ season }} — Final Standings</div>
+  <div class="so-sub">{{ total_players }}{% if total_players >= 100 %}+{% endif %} competitors · cumulative across every week played</div>
+</div>
+
+{% if my_row %}
+<div class="so-finish">
+  <div>
+    <div class="so-rank">#{{ my_rank or '—' }}</div>
+    <div class="so-rank-lab">Your Finish</div>
+  </div>
+  <div class="so-divider"></div>
+  <div class="so-stat">
+    <span class="so-stat-val">{{ "{:,}".format(my_row.total_points) }}</span>
+    <span class="so-stat-lab">Total Score</span>
+  </div>
+  <div class="so-stat">
+    <span class="so-stat-val">{{ my_row.picks_correct }}/{{ my_row.picks_total }}</span>
+    <span class="so-stat-lab">Correct</span>
+  </div>
+  <div class="so-stat">
+    <span class="so-stat-val">{{ my_row.win_pct }}%</span>
+    <span class="so-stat-lab">Win Rate</span>
+  </div>
+</div>
+{% else %}
+<div class="so-finish" style="border-color:var(--border)">
+  <div style="color:var(--text-muted);font-size:.9rem;">
+    You didn't record any settled picks this season.
+  </div>
+</div>
+{% endif %}
+
+{% if board %}
+<div class="lb-table-wrap">
+  <table class="lb-table">
+    <thead>
+      <tr>
+        <th style="width:52px">#</th>
+        <th>Player</th>
+        <th class="right">Score</th>
+        <th class="right">Picks</th>
+        <th class="right">Win Rate</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in board %}
+      <tr class="{{ 'me' if row.is_human else '' }}">
+        <td><span class="rank-num {{ 'top3' if row.rank <= 3 else '' }}">{{ row.rank }}</span></td>
+        <td class="username">
+          {{ row.username }}
+          {% if row.is_human %}<span style="font-size:.68rem;color:var(--gold-dim);margin-left:.4rem;">YOU</span>{% endif %}
+        </td>
+        <td class="right"><span class="pts-val">{{ "{:,}".format(row.total_points) }}</span></td>
+        <td class="right" style="font-variant-numeric:tabular-nums;">{{ row.picks_correct }}/{{ row.picks_total }}</td>
+        <td class="right">{{ row.win_pct }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="so-new-note">
+  <div class="nt-title">Start a fresh season?</div>
+  <div class="nt-desc">
+    This clears every slate, pick, and standing and resets your points to {{ "{:,}".format(points if points is defined else 1000) }}.
+    These results won't be saved — grab a screenshot if you want to remember them.
+  </div>
+  <div class="so-actions" style="margin-bottom:0;">
+    <a class="btn btn-outline" href="{{ url_for('pfs.commissioner') }}">Not Yet</a>
+    <form method="POST" action="{{ url_for('pfs.commissioner_new_season') }}" style="display:inline">
+      <button type="submit" class="btn btn-danger">Start New Season</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

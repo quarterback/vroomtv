@@ -2,7 +2,7 @@
 from __future__ import annotations
 import random
 from . import db
-from .slate import ZORAS_PER_WEEK, current_week
+from .slate import POINTS_PER_SEASON, season_prefix
 
 
 def settle_week(week_key: str) -> dict:
@@ -101,23 +101,71 @@ def _rebuild_leaderboard(week_key: str) -> None:
            r["picks_total"] or 0) for r in rows])
 
 
-def reset_week(week_key: str) -> dict:
-    """Start the week over fresh.
+def advance_week() -> dict:
+    """Move to the next week of the current season.
 
-    Clears the week's slate, picks, and leaderboard, then restores the human's
-    Zora balance to 1,000. This frees the slate so the commissioner can refresh
-    it with a new batch of games (game IDs are globally unique, so the old rows
-    must be removed before the same games can be re-slated).
+    The season bankroll carries over — only the slate is fresh (empty until the
+    commissioner refreshes it). Returns the new season/week.
+    """
+    db.execute("UPDATE season_state SET week = week + 1 WHERE id=1")
+    s = db.fetchone("SELECT season, week FROM season_state WHERE id=1")
+    return {"ok": True, "season": s["season"], "week": s["week"],
+            "week_key": f"S{s['season']}-W{s['week']:02d}"}
+
+
+def new_season() -> dict:
+    """Wipe all play data and start a brand-new season at Week 1.
+
+    Clears slates, picks, leaderboards, and the bankroll, then resets the season
+    pointer. No history is kept — this is a clean slate.
     """
     # picks reference weekly_slate via a foreign key, so clear them first.
-    db.execute("DELETE FROM picks WHERE week_key=?", (week_key,))
-    db.execute("DELETE FROM weekly_leaderboard WHERE week_key=?", (week_key,))
-    db.execute("DELETE FROM weekly_slate WHERE week_key=?", (week_key,))
-    db.execute(
-        "INSERT OR REPLACE INTO human_wallet (week_key, zoras_remaining) VALUES (?,?)",
-        (week_key, ZORAS_PER_WEEK)
-    )
-    return {"ok": True, "week_key": week_key, "zoras": ZORAS_PER_WEEK}
+    db.execute("DELETE FROM picks")
+    db.execute("DELETE FROM weekly_leaderboard")
+    db.execute("DELETE FROM weekly_slate")
+    db.execute("DELETE FROM human_wallet")
+    db.execute("UPDATE season_state SET season = 1, week = 1 WHERE id=1")
+    return {"ok": True, "points": POINTS_PER_SEASON}
+
+
+def get_season_leaderboard(season: int | None = None, limit: int = 100) -> list[dict]:
+    """Cumulative season standings across every settled week of the season."""
+    prefix = season_prefix(season)
+    rows = db.fetchall("""
+        SELECT lb.participant_id, p.username, p.is_human,
+               SUM(lb.total_points)  AS total_points,
+               SUM(lb.picks_correct) AS picks_correct,
+               SUM(lb.picks_total)   AS picks_total
+        FROM weekly_leaderboard lb
+        JOIN participants p ON p.id = lb.participant_id
+        WHERE lb.week_key LIKE ?
+        GROUP BY lb.participant_id
+        ORDER BY total_points DESC, picks_correct DESC
+        LIMIT ?
+    """, (prefix + "%", limit))
+    out = []
+    for i, r in enumerate(rows, 1):
+        pct = round(r["picks_correct"] / r["picks_total"] * 100) if r["picks_total"] else 0
+        out.append({**r, "rank": i, "win_pct": pct})
+    return out
+
+
+def get_season_human_rank(season: int | None, human_id: int) -> int | None:
+    """The human's overall rank across the whole season."""
+    prefix = season_prefix(season)
+    rows = db.fetchall("""
+        SELECT lb.participant_id,
+               SUM(lb.total_points)  AS total_points,
+               SUM(lb.picks_correct) AS picks_correct
+        FROM weekly_leaderboard lb
+        WHERE lb.week_key LIKE ?
+        GROUP BY lb.participant_id
+        ORDER BY total_points DESC, picks_correct DESC
+    """, (prefix + "%",))
+    for i, r in enumerate(rows, 1):
+        if r["participant_id"] == human_id:
+            return i
+    return None
 
 
 def get_leaderboard(week_key: str, limit: int = 50) -> list[dict]:
