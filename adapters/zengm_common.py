@@ -10,6 +10,8 @@ once per upload, not once per page view.
 """
 from __future__ import annotations
 
+import gzip
+import io
 import json
 import os
 import threading
@@ -25,6 +27,22 @@ KEEP_BOX_MAX_BYTES = 120_000_000
 # env-var -> (mtime, lean-league)
 _cache: dict[str, tuple[float, dict]] = {}
 _lock = threading.Lock()
+
+
+def _open_text(path: str) -> io.TextIOBase:
+    """Open a league file as UTF-8 text, transparently decompressing if it's
+    gzip (sniffed by magic bytes) — ZenGM exports can be uploaded `.json` or
+    gzipped `.json.gz` to cut transfer size."""
+    with open(path, "rb") as fh:
+        magic = fh.read(2)
+    if magic == b"\x1f\x8b":
+        return gzip.open(path, "rt", encoding="utf-8")
+    return open(path, "rt", encoding="utf-8")
+
+
+def _load_json(path: str):
+    with _open_text(path) as fh:
+        return json.load(fh)
 
 
 def _file_size(env_var: str) -> int | None:
@@ -97,9 +115,8 @@ def load(env_var: str) -> dict | None:
         if hit and hit[0] == mtime:
             return hit[1]
     try:
-        with open(path, encoding="utf-8") as fh:
-            raw = json.load(fh)
-    except (OSError, json.JSONDecodeError):
+        raw = _load_json(path)
+    except (OSError, json.JSONDecodeError, gzip.BadGzipFile):
         return None
     keep_box = KEEP_BOX_SCORES and os.path.getsize(path) <= KEEP_BOX_MAX_BYTES
     lean = _project(raw, keep_box=keep_box)
@@ -115,9 +132,8 @@ def project_file(src_path: str, dst_path: str) -> bool:
     route: a 266 MB export lands as a few-MB lean file. Returns False if the
     source won't parse as JSON (caller should fall back to the raw bytes)."""
     try:
-        with open(src_path, encoding="utf-8") as fh:
-            raw = json.load(fh)
-    except (OSError, json.JSONDecodeError):
+        raw = _load_json(src_path)
+    except (OSError, json.JSONDecodeError, gzip.BadGzipFile):
         return False
     keep_box = KEEP_BOX_SCORES and os.path.getsize(src_path) <= KEEP_BOX_MAX_BYTES
     lean = _project(raw, keep_box=keep_box)

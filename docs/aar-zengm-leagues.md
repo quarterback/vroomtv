@@ -173,11 +173,18 @@ wire only recaps clickable games — currently none). Flip `KEEP_BOX_SCORES` bac
 on (with the `KEEP_BOX_MAX_BYTES` cap) if clickable box-score pages for small
 leagues are ever wanted again; the box-score templates/route remain in place.
 
+**Gzip uploads.** Uploads may be plain `.json` or gzipped `.json.gz` —
+`zengm_common._open_text()` sniffs the gzip magic bytes and decompresses
+transparently (so does `load()` and `project_file()`). Gzipping cuts the
+transfer a lot (the 6.8 MB PWHL export → ~1 MB gzipped) and is worth doing for
+the big college files. Just `curl --data-binary @league.json.gz …` — no special
+header needed.
+
 Remaining caveat: the one-time parse during the upload request still peaks
-~1.3 GB transiently (stdlib `json.load` builds the whole object before
-projection). It's bounded to the upload, not steady-state. If a hub can't
-survive even that, a streaming parse (ijson) inside `project_file` is a
-contained follow-up.
+~1.3 GB transiently for a 266 MB league (stdlib `json.load` builds the whole
+object before projection; gzip shrinks transfer, not the parse). It's bounded to
+the upload, not steady-state. If a hub can't survive even that, a streaming
+parse (ijson) inside `project_file` is a contained follow-up.
 
 ### Current league keys / env vars
 
