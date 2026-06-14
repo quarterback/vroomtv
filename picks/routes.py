@@ -185,8 +185,8 @@ def commissioner_reset():
     week_key = _week()
     result = settle_mod.reset_week(week_key)
     flash(
-        f"Week reset to {result['week_key']}. "
-        f"Your Zora balance restored to {result['zoras']:,}.",
+        f"Week {result['week_key']} reset — slate cleared and your Zora balance "
+        f"restored to {result['zoras']:,}. Refresh the slate to start a new competition.",
         "success"
     )
     return redirect(url_for("pfs.commissioner"))

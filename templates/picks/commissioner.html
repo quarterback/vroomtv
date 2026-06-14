@@ -195,8 +195,8 @@
     <div class="action-icon">🔄</div>
     <div class="action-title">New Week</div>
     <div class="action-desc">
-      Restore your Zora balance to 1,000 for the current calendar week.
-      Use after settling if you've already exhausted your Zoras, or at the start of a fresh week.
+      Clear this week's slate, picks, and leaderboard, and restore your Zora balance to 1,000.
+      Use after settling to wipe the board and start a brand-new competition — then Refresh Slate to pull fresh games.
     </div>
     <button class="btn btn-outline" onclick="document.getElementById('reset-modal').classList.add('open')">
       Reset Week
@@ -240,17 +240,19 @@
 <div class="modal-overlay" id="reset-modal">
   <div class="modal-box">
     <div class="modal-icon">⚠️</div>
-    <div class="modal-title">Reset Your Zora Balance?</div>
+    <div class="modal-title">Reset Week {{ week_key }}?</div>
     <div class="modal-body">
-      This will restore your Zora balance to <strong style="color:var(--gold)">1,000 Zoras</strong> for week <strong>{{ week_key }}</strong>.
-      Your existing picks and leaderboard standing are unchanged.
+      This clears the <strong>slate</strong>, all <strong>picks</strong>, and the <strong>leaderboard</strong>
+      for week <strong>{{ week_key }}</strong>, and restores your balance to
+      <strong style="color:var(--gold)">1,000 Zoras</strong>.
+      This can't be undone — settle first if you want to keep the results.
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="document.getElementById('reset-modal').classList.remove('open')">
         Cancel
       </button>
       <form method="POST" action="{{ url_for('pfs.commissioner_reset') }}" style="display:inline">
-        <button type="submit" class="btn btn-danger">Yes, Reset Zoras</button>
+        <button type="submit" class="btn btn-danger">Yes, Reset Week</button>
       </form>
     </div>
   </div>

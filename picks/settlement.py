@@ -101,13 +101,23 @@ def _rebuild_leaderboard(week_key: str) -> None:
            r["picks_total"] or 0) for r in rows])
 
 
-def reset_week(new_week_key: str) -> dict:
-    """Restore 1,000 Zoras for the new week."""
+def reset_week(week_key: str) -> dict:
+    """Start the week over fresh.
+
+    Clears the week's slate, picks, and leaderboard, then restores the human's
+    Zora balance to 1,000. This frees the slate so the commissioner can refresh
+    it with a new batch of games (game IDs are globally unique, so the old rows
+    must be removed before the same games can be re-slated).
+    """
+    # picks reference weekly_slate via a foreign key, so clear them first.
+    db.execute("DELETE FROM picks WHERE week_key=?", (week_key,))
+    db.execute("DELETE FROM weekly_leaderboard WHERE week_key=?", (week_key,))
+    db.execute("DELETE FROM weekly_slate WHERE week_key=?", (week_key,))
     db.execute(
         "INSERT OR REPLACE INTO human_wallet (week_key, zoras_remaining) VALUES (?,?)",
-        (new_week_key, ZORAS_PER_WEEK)
+        (week_key, ZORAS_PER_WEEK)
     )
-    return {"ok": True, "week_key": new_week_key, "zoras": ZORAS_PER_WEEK}
+    return {"ok": True, "week_key": week_key, "zoras": ZORAS_PER_WEEK}
 
 
 def get_leaderboard(week_key: str, limit: int = 50) -> list[dict]:
