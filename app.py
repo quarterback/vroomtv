@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from urllib.parse import quote
 from flask import Flask, Response, render_template, abort, jsonify, request
-from adapters import baseball, viperball, tennis, desk
+from adapters import baseball, viperball, tennis, hockey, desk
 import newsroom
 import sync
 
@@ -42,7 +42,8 @@ def upload_db(sport: str):
              -H "Authorization: Bearer $TOKEN" https://<hub>/upload/viperball
     """
     dest_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
-                "tennis": "TENNIS_DB"}.get(sport)
+                "tennis": "TENNIS_DB",
+                "hockey": "HOCKEY_LEAGUE_FILE"}.get(sport)
     if not dest_env or not _feed_auth_ok(sport, write=True):
         abort(404)
     dest = os.environ.get(dest_env)
@@ -74,13 +75,15 @@ def download_db(sport: str):
     """
     from flask import send_file
     src_env = {"baseball": "BASEBALL_DB", "viperball": "VIPERBALL_DB",
-               "tennis": "TENNIS_DB"}.get(sport)
+               "tennis": "TENNIS_DB",
+               "hockey": "HOCKEY_LEAGUE_FILE"}.get(sport)
     if not src_env or not _feed_auth_ok(sport):
         abort(404)
     src = os.environ.get(src_env)
     if not src or not os.path.exists(src):
         abort(404)
-    return send_file(src, mimetype="application/x-sqlite3",
+    mimetype = "application/json" if sport == "hockey" else "application/x-sqlite3"
+    return send_file(src, mimetype=mimetype,
                      as_attachment=True, download_name=os.path.basename(src))
 
 
@@ -132,6 +135,14 @@ def _ticker(per_sport: int = 8) -> list[dict]:
             "note": "Final",
             "url": f"/game/tennis/{g['source']}/{g['id']}",
         })
+    for g in hockey.get_recent_scores(limit=per_sport):
+        items.append({
+            "sport": "Hockey", "league": g["league"],
+            "away": g["away_abbrev"], "home": g["home_abbrev"],
+            "away_score": g["away_score"], "home_score": g["home_score"],
+            "note": "Playoffs" if g["is_playoff"] else "Final",
+            "url": f"/game/hockey/{g['id']}",
+        })
     return items
 
 
@@ -163,8 +174,10 @@ def index():
     baseball_scores = baseball.get_recent_scores()
     viperball_scores = viperball.get_recent_scores()
     tennis_scores = tennis.get_recent_scores()
+    hockey_scores = hockey.get_recent_scores()
     articles = baseball.get_news(limit=5)
-    wire = newsroom.build_wire(baseball_scores, viperball_scores, tennis_scores)
+    wire = newsroom.build_wire(baseball_scores, viperball_scores, tennis_scores,
+                               hockey_scores=hockey_scores)
     desk_articles = desk.all_articles()
     # Placement: desk "lead" beats the gazette + the wire; "featured"
     # slots into the brief grid; "rail"/"wire" go to the sidebar list.
@@ -180,9 +193,11 @@ def index():
         baseball_extra=baseball.get_extra_scores(),
         viperball_scores=viperball_scores,
         tennis_scores=tennis_scores,
+        hockey_scores=hockey_scores,
         baseball_configured=bool(os.environ.get("BASEBALL_DB")),
         viperball_configured=bool(os.environ.get("VIPERBALL_DB")),
         tennis_configured=bool(os.environ.get("TENNIS_DB")),
+        hockey_configured=bool(os.environ.get("HOCKEY_LEAGUE_FILE")),
     )
 
 
@@ -194,9 +209,11 @@ def news():
     baseball_scores = baseball.get_recent_scores()
     viperball_scores = viperball.get_recent_scores()
     tennis_scores = tennis.get_recent_scores()
+    hockey_scores = hockey.get_recent_scores()
     wire = newsroom.build_wire(baseball_scores, viperball_scores,
-                               tennis_scores, briefs=30)
-    by_sport = {"Baseball": [], "Viperball": [], "Tennis": []}
+                               tennis_scores, briefs=30,
+                               hockey_scores=hockey_scores)
+    by_sport = {"Baseball": [], "Viperball": [], "Tennis": [], "Hockey": []}
     items = ([wire["lead"]] if wire.get("lead") else []) + wire.get("briefs", [])
     for it in items:
         by_sport.setdefault(it["sport"], []).append(it)
@@ -255,6 +272,11 @@ def standings():
         catalog.append({"sport": "Tennis", "leagues": [
             {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
              "teams": lg["teams"]} for lg in tn]})
+    hk = hockey.get_standings()
+    if hk:
+        catalog.append({"sport": "Hockey", "leagues": [
+            {"label": lg["league"], "kind": "hockey", "tier": lg["tier"],
+             "teams": lg["teams"]} for lg in hk]})
     portal = tennis.get_portal_universes()
     if portal:
         # Portal rankings replace the basic W-L for NCAA divisions with the
@@ -401,6 +423,21 @@ def scores():
                  for g in games]}
             for label, games in by_tn.items()]})
 
+    hk = hockey.get_recent_scores(limit=80)
+    by_hk: dict = {}
+    for g in hk:
+        by_hk.setdefault(g["league"], []).append(g)
+    if by_hk:
+        catalog.append({"sport": "Hockey", "leagues": [
+            {"label": label, "tier": "Pro", "games": [
+                {"away": g["away_name"], "home": g["home_name"],
+                 "ascore": g["away_score"], "hscore": g["home_score"],
+                 "url": f"/game/hockey/{g['id']}",
+                 "group": g["game_date"], "conf": "",
+                 "note": "Playoffs" if g["is_playoff"] else ""}
+                for g in games]}
+            for label, games in by_hk.items()]})
+
     for c in catalog:
         c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
     entry, sel = _pick(catalog)
@@ -438,6 +475,10 @@ def leaders():
     tn_leagues = _tennis_leader_boards()
     if tn_leagues:
         catalog.append({"sport": "Tennis", "leagues": tn_leagues})
+    hk_boards = hockey.get_leader_boards()
+    if hk_boards:
+        catalog.append({"sport": "Hockey", "leagues": [
+            {"label": hockey.league_label(), "tier": "Pro", "boards": hk_boards}]})
     for c in catalog:
         c["leagues"].sort(key=lambda l: l["tier"] != "Pro")
     entry, sel = _pick(catalog)
@@ -508,6 +549,24 @@ def game_baseball(game_id: int):
             if t["name"] in (g["home_name"], g["away_name"])}
     detail["ladder"] = [t for t in rows if t["division"] in divs]
     return render_template("game_baseball.html", **detail)
+
+
+@app.route("/game/hockey/<int:gid>")
+def game_hockey(gid: int):
+    detail = hockey.get_game_detail(gid)
+    if not detail:
+        abort(404)
+    g = detail["game"]
+    tb = detail.pop("team_box", {"home": {}, "away": {}})
+    detail["duel"] = _duel(
+        tb["away"], tb["home"],
+        [("Shots", "s"), ("Hits", "hit"), ("Blocks", "blk"),
+         ("PIM", "pim"), ("Faceoff wins", "fow")])
+    rows = [t for lg in hockey.get_standings() for t in lg["teams"]]
+    divs = {t["division"] for t in rows
+            if t["name"] in (g["home_name"], g["away_name"])}
+    detail["ladder"] = [t for t in rows if t["division"] in divs]
+    return render_template("game_hockey.html", **detail)
 
 
 @app.route("/game/viperball/<save_key>/<int:week>/<path:matchup_key>")

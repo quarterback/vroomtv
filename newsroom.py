@@ -64,7 +64,8 @@ def _item(sport: str, league: str, home: str, away: str,
 
 
 def build_wire(baseball_scores: list, viperball_scores: list,
-               tennis_scores: list, briefs: int = 8) -> dict:
+               tennis_scores: list, briefs: int = 8,
+               hockey_scores: list | None = None) -> dict:
     """{"lead": item|None, "briefs": [items]} from raw adapter scores."""
     items = []
     for g in baseball_scores:
@@ -83,6 +84,11 @@ def build_wire(baseball_scores: list, viperball_scores: list,
             "Tennis", g["league"], g["home_name"], g["away_name"],
             g["home_points"], g["away_points"],
             f"/game/tennis/{g['source']}/{g['id']}"))
+    for g in (hockey_scores or []):
+        items.append(_item(
+            "Hockey", g["league"], g["home_name"], g["away_name"],
+            g["home_score"], g["away_score"], f"/game/hockey/{g['id']}",
+            extra="Playoffs" if g.get("is_playoff") else ""))
     if not items:
         return {"lead": None, "briefs": []}
 
@@ -154,6 +160,22 @@ _SCENES = {
             "l.l...n..l...l",
             "l.....n......l",
             "llllllllllllll",
+        ],
+    },
+    "hockey": {
+        # rink from above: blue lines, red center line, crease, puck
+        "bg": ("#dfe9f2", "#eef4fa"),
+        "colors": {"b": "#1d4ed8", "r": "#c8102e", "c": "#9ed8db", "p": "#10151c"},
+        "map": [
+            "..b....r....b.",
+            "..b....r....b.",
+            "..b...rrr...b.",
+            "ccb...rpr...bc",
+            "ccb...rrr...bc",
+            "ccb...rrr...bc",
+            "..b...rrr...b.",
+            "..b....r....b.",
+            "..b....r....b.",
         ],
     },
     "viperball": {
