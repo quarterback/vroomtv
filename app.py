@@ -141,23 +141,25 @@ def _ticker(per_sport: int = 8) -> list[dict]:
             "url": f"/game/tennis/{g['source']}/{g['id']}",
         })
     for feed in zengm_feeds.enabled():
+        click = zengm_feeds.clickable(feed)
         for g in zengm_feeds.module(feed).recent_scores(feed, limit=per_sport):
             items.append({
                 "sport": g["sport_label"], "league": g["league"],
                 "away": g["away_abbrev"], "home": g["home_abbrev"],
                 "away_score": g["away_score"], "home_score": g["home_score"],
                 "note": "Playoffs" if g["is_playoff"] else "Final",
-                "url": f"/game/zg/{g['key']}/{g['id']}",
+                "url": f"/game/zg/{g['key']}/{g['id']}" if click else "",
             })
     return items
 
 
 def _zengm_scores(limit: int = 15) -> list[dict]:
-    """Flat list of recent scores across every enabled ZenGM league feed,
-    each item tagged with sport_label + key (for the wire and front page)."""
+    """Recent scores for the wire — only from feeds whose games are clickable
+    (a recap headline that links nowhere isn't useful)."""
     out = []
     for feed in zengm_feeds.enabled():
-        out.extend(zengm_feeds.module(feed).recent_scores(feed, limit=limit))
+        if zengm_feeds.clickable(feed):
+            out.extend(zengm_feeds.module(feed).recent_scores(feed, limit=limit))
     return out
 
 
@@ -197,7 +199,8 @@ def index():
             mod = zengm_feeds.module(feed)
             sc = mod.recent_scores(feed)
             if sc:
-                leagues.append({"league": mod.league_label(feed), "scores": sc})
+                leagues.append({"league": mod.league_label(feed), "scores": sc,
+                                "key": feed["key"], "clickable": zengm_feeds.clickable(feed)})
         if leagues:
             zengm_sections.append({"sport": sport, "leagues": leagues})
     articles = baseball.get_news(limit=5)
@@ -454,10 +457,11 @@ def scores():
             sc = mod.recent_scores(feed, limit=120)
             if not sc:
                 continue
+            click = zengm_feeds.clickable(feed)
             sleagues.append({"label": mod.league_label(feed), "tier": "Pro", "games": [
                 {"away": g["away_name"], "home": g["home_name"],
                  "ascore": g["away_score"], "hscore": g["home_score"],
-                 "url": f"/game/zg/{feed['key']}/{g['id']}",
+                 "url": f"/game/zg/{feed['key']}/{g['id']}" if click else "",
                  "group": g["game_date"], "conf": "",
                  "note": "Playoffs" if g["is_playoff"] else ""}
                 for g in sc]})

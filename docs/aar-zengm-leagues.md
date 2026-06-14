@@ -151,15 +151,29 @@ NHL + PWHL; basketball standings split East/West; SGA 32.5 PPG (NBA), Ashley
 Carter 26.1 PPG (W-NCAA); generic game route + unknown-key 404 confirmed; the
 three existing sims still render.
 
-**⚠️ Memory caveat (open).** The mtime cache holds each parsed league file in
-RAM. Small leagues are cheap (PWHL ~7 MB; NBA 72 MB → ~300 MB), but the Women's
-NCAA D1 file (351 teams **with box scores**) is **266 MB on disk → ~1.3 GB
-resident** when loaded — even just to read standings, because the whole file is
-parsed. With men's college too, a small hub would OOM. Options to resolve:
-(a) export the big college leagues **without Box Scores** (standings + season
-leaders only — far smaller), (b) host on a larger instance, or (c) add a
-SQLite-conversion path for large feeds so queries don't hold the whole league in
-memory. Pro leagues (~30 teams) are fine as-is. Decision pending with the user.
+**Memory — load-time compaction (resolved).** Per the user, the deliverable is
+scores/results + standings + leaders; box scores only matter for the occasional
+game they want an article on, and big leagues need not be clickable. So
+`zengm_common.load()` now parses the raw export once and immediately **projects
+it to a lean shape** (`_project`) — game *scores* + team records + the current
+season's player stats always; per-game player box lines + goal summaries only
+when the file is ≤ `KEEP_BOX_MAX_BYTES` (120 MB). Only the lean copy is cached;
+the raw dict is freed. Files over the threshold are shown **unclickable** —
+`zengm_common.has_box()` / `zengm_feeds.clickable()` drive whether a game gets a
+`/game/zg/...` URL (the `scorecard` macro and `scores.html` already render a
+link-less card when the URL is empty), and the wire only recaps clickable games.
+
+Effect on the Women's NCAA D1 file (266 MB, 5573 games, 10k players):
+steady-state resident memory **~400 MB** (was ~1.3 GB when the full dict was
+cached); it still shows every game's score, full standings (364 teams) and PPG
+leaders — just no box-score pages. Pro leagues (PWHL 7 MB, NBA 72 MB) stay under
+the threshold and remain fully clickable.
+
+Remaining caveat: the **one-time parse** of a 266 MB file still peaks ~1.3 GB
+transiently (stdlib `json.load` builds the whole object before projection). That
+happens once per upload, not per request. If the hub is too small to survive
+even that transient, the fix is a streaming parse (ijson) in `_project` — the
+projection logic is already isolated, so it's a contained follow-up.
 
 ### Current league keys / env vars
 

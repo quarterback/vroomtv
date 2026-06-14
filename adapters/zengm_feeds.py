@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 
-from adapters import basketball, zengm_rink
+from adapters import basketball, zengm_common, zengm_rink
 
 # engine -> {module, standings kind, game template}. The module exposes the
 # shared feed-cfg surface: recent_scores/standings/leader_boards/game_detail/
@@ -75,6 +75,12 @@ def by_key(key: str) -> dict | None:
 
 def module(feed: dict):
     return ENGINES[feed["engine"]]["module"]
+
+
+def clickable(feed: dict) -> bool:
+    """Whether this feed's games link to a box-score page (small files only;
+    big leagues are compacted to scores-only and shown unlinked)."""
+    return zengm_common.has_box(feed["env"])
 
 
 def template(feed: dict) -> str:

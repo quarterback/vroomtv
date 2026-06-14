@@ -14,14 +14,74 @@ import json
 import os
 import threading
 
-# env-var -> (mtime, parsed-json)
+# Files at or under this keep their full per-game box scores in memory (so
+# their games are clickable). Bigger leagues (a 351-team college season with
+# box scores is ~266 MB → ~1.3 GB resident) are compacted on load to scores +
+# season stats only, so steady-state memory stays bounded — those games still
+# show results, they just aren't clickable.
+KEEP_BOX_MAX_BYTES = 120_000_000
+
+# env-var -> (mtime, lean-league)
 _cache: dict[str, tuple[float, dict]] = {}
 _lock = threading.Lock()
 
 
+def _file_size(env_var: str) -> int | None:
+    path = os.environ.get(env_var)
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return None
+
+
+def has_box(env_var: str) -> bool:
+    """Whether this feed's games should be clickable — true only for files
+    small enough to keep per-game player lines resident."""
+    size = _file_size(env_var)
+    return size is not None and size <= KEEP_BOX_MAX_BYTES
+
+
+def _project(d: dict, keep_box: bool) -> dict:
+    """Compact a parsed league to just what the adapters read, so the big
+    raw dict can be freed. Always keeps game *scores*, team records, and the
+    current season's player stats; keeps per-game player box lines (and goal
+    summaries) only when ``keep_box``. Shapes match what the adapters expect."""
+    season = current_season(d)
+    ga = d.get("gameAttributes") or {}
+    lean_ga = {k: ga[k] for k in ("confs", "divs", "season", "numGames",
+                                  "phase", "startingSeason") if k in ga}
+    teams = [{k: t.get(k) for k in ("tid", "cid", "did", "region", "name",
+                                    "abbrev", "imgURL", "colors", "disabled",
+                                    "seasons")}
+             for t in d.get("teams") or []]
+    players = [{"pid": p.get("pid"), "firstName": p.get("firstName"),
+                "lastName": p.get("lastName"),
+                "stats": [s for s in (p.get("stats") or [])
+                          if s.get("season") == season]}
+               for p in d.get("players") or []]
+    games = []
+    for g in d.get("games") or []:
+        lg = {k: g.get(k) for k in ("gid", "day", "season", "playoffs",
+                                    "overtimes", "numPeriods", "won", "lost")}
+        gt = g.get("teams") or []
+        if keep_box:
+            lg["teams"] = gt
+            lg["scoringSummary"] = g.get("scoringSummary")
+        else:
+            lg["teams"] = [{"tid": t.get("tid"), "pts": t.get("pts")} for t in gt]
+        games.append(lg)
+    return {"meta": d.get("meta"), "gameAttributes": lean_ga,
+            "teams": teams, "players": players, "games": games}
+
+
 def load(env_var: str) -> dict | None:
-    """Parsed league file at ``$<env_var>``, cached on mtime. Returns None
-    when the var is unset, the file is missing, or the JSON won't parse."""
+    """Compacted league file at ``$<env_var>``, cached on mtime. Returns None
+    when the var is unset, the file is missing, or the JSON won't parse.
+
+    The raw export is parsed once per upload and immediately projected down
+    to the lean shape (see ``_project``); only the lean copy is cached."""
     path = os.environ.get(env_var)
     if not path or not os.path.exists(path):
         return None
@@ -35,12 +95,14 @@ def load(env_var: str) -> dict | None:
             return hit[1]
     try:
         with open(path, encoding="utf-8") as fh:
-            data = json.load(fh)
+            raw = json.load(fh)
     except (OSError, json.JSONDecodeError):
         return None
+    lean = _project(raw, keep_box=(os.path.getsize(path) <= KEEP_BOX_MAX_BYTES))
+    del raw
     with _lock:
-        _cache[env_var] = (mtime, data)
-    return data
+        _cache[env_var] = (mtime, lean)
+    return lean
 
 
 def ga(league: dict, key: str, default=None):
@@ -55,11 +117,23 @@ def ga(league: dict, key: str, default=None):
 
 
 def current_season(league: dict) -> int:
-    """Latest season with games on record (falls back to the save's season)."""
+    """The season to display. With box scores, the latest season that has
+    games. Without them (e.g. a big college league exported without box
+    scores to save memory), the latest season a team actually played —
+    `gameAttributes.season` can point at an empty upcoming season in an
+    offseason export, which would blank the standings."""
     games = league.get("games") or []
     if games:
         return max(g["season"] for g in games)
-    return ga(league, "season", 0) or 0
+    best = None
+    for t in league.get("teams") or []:
+        for s in t.get("seasons") or []:
+            if (s.get("won", 0) or 0) + (s.get("lost", 0) or 0) + \
+               (s.get("tied", 0) or 0) + (s.get("otl", 0) or 0) > 0:
+                yr = s.get("season")
+                if yr is not None and (best is None or yr > best):
+                    best = yr
+    return best if best is not None else (ga(league, "season", 0) or 0)
 
 
 def team_index(league: dict) -> dict[int, dict]:
