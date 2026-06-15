@@ -105,6 +105,17 @@ def standings(cfg: dict) -> list[dict]:
                       ("Pct", "pct", "%.3f")]}]
 
 
+# ── playoffs ─────────────────────────────────────────────────────────────
+
+def playoffs(cfg: dict) -> list[dict]:
+    """Bracket entries (shared adapters.bracket shape), [] when no postseason."""
+    lg = _league(cfg)
+    if not lg:
+        return []
+    b = z.playoff_bracket(lg, league_label(cfg))
+    return [b] if b else []
+
+
 # ── leaders ──────────────────────────────────────────────────────────────
 
 def _season_totals(lg: dict, season: int) -> list[dict]:

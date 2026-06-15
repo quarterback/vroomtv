@@ -229,6 +229,74 @@ def get_standings() -> list[dict]:
         return []
 
 
+_SERIES_KIND_NAMES = {"wild_card": "Wild Card", "division": "Division Series",
+                      "championship": "Championship Series",
+                      "world_series": "World Series"}
+
+
+def get_playoffs() -> list[dict]:
+    """Current-season postseason in the shared adapters.bracket shape, read
+    from the o27v2 ``playoff_series`` table (one bracket per playoff league)."""
+    from collections import OrderedDict
+    from adapters import bracket as B
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return []
+    try:
+        conn = _conn(path)
+        season = _current_season(conn)
+        rows = conn.execute("""
+            SELECT s.round_idx, s.bracket_position, s.league, s.series_kind,
+                   s.high_seed, s.low_seed, s.best_of, s.high_wins, s.low_wins,
+                   s.winner_team_id, s.high_seed_team_id, s.low_seed_team_id,
+                   ht.name AS high_name, ht.abbrev AS high_abbrev,
+                   lt.name AS low_name, lt.abbrev AS low_abbrev
+            FROM playoff_series s
+            LEFT JOIN teams ht ON ht.id = s.high_seed_team_id
+            LEFT JOIN teams lt ON lt.id = s.low_seed_team_id
+            WHERE s.season = ?
+            ORDER BY s.round_idx, s.bracket_position
+        """, (season,)).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    if not rows:
+        return []
+    by_league: "OrderedDict[str, list]" = OrderedDict()
+    for r in rows:
+        by_league.setdefault(r["league"] or "O27 League", []).append(r)
+    out = []
+    for lname, lrows in by_league.items():
+        by_round: "OrderedDict[int, list]" = OrderedDict()
+        for r in lrows:
+            by_round.setdefault(r["round_idx"], []).append(r)
+        ordered = list(by_round.items())
+        total = len(ordered)
+        rounds = []
+        for idx, (_ridx, srows) in enumerate(ordered):
+            srs = []
+            for r in srows:
+                top = B.side(r["high_name"], r["high_abbrev"],
+                             seed=r["high_seed"], wins=r["high_wins"] or 0)
+                bot = B.side(r["low_name"], r["low_abbrev"],
+                             seed=r["low_seed"], wins=r["low_wins"] or 0)
+                wid = r["winner_team_id"]
+                if wid is not None and wid == r["high_seed_team_id"]:
+                    winner = "top"
+                elif wid is not None and wid == r["low_seed_team_id"]:
+                    winner = "bot"
+                else:
+                    winner = B.winner_by_wins(top, bot, r["best_of"])
+                srs.append(B.series(top, bot, r["best_of"], winner))
+            name = _SERIES_KIND_NAMES.get(srows[0]["series_kind"] or "") \
+                or B.round_name(idx, total)
+            rounds.append({"name": name, "series": srs})
+        label = lname if len(by_league) > 1 else "O27 League"
+        out.append(B.bracket(label, rounds, tier="Pro", season=season,
+                             champion=B.champion_of(rounds)))
+    return out
+
+
 def _qual_floors(conn: sqlite3.Connection, season: int) -> tuple[int, int]:
     """Qualification floors that scale with how far the season has gone
     (a fixed floor empties the boards early in a season): ~2 AB and ~3

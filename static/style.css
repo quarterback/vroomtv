@@ -623,3 +623,40 @@ section { margin-bottom: 36px; }
 @media (max-width: 640px) {
   .fantasy-promo-row { grid-template-columns: 1fr; }
 }
+
+/* ── Playoffs / bracket ─────────────────────────────────────────────── */
+.champ-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: #faf3e8; border: 1px solid #e7d6b0; border-radius: 8px;
+  padding: 12px 16px; margin-bottom: 22px; font-size: 15px;
+}
+.champ-banner b { font-weight: 800; }
+.champ-trophy { font-size: 20px; }
+.bracket { display: flex; flex-direction: column; gap: 28px; }
+.series-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.series-card {
+  border: 1px solid var(--rule); border-radius: 6px; overflow: hidden;
+  background: var(--paper);
+}
+.series-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.series-row:last-of-type { border-bottom: none; }
+.series-row .seed {
+  font-size: 11px; color: var(--soft); font-variant-numeric: tabular-nums;
+  min-width: 16px; text-align: center;
+}
+.series-row .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.series-row .n { font-variant-numeric: tabular-nums; font-weight: 700; }
+.series-row.won { font-weight: 700; }
+.series-row.won .n::after { content: ' ◂'; color: var(--red); font-size: 9px; }
+.series-row.lost { color: var(--muted); }
+.series-row.lost .n { font-weight: 400; }
+.series-meta {
+  padding: 4px 12px; font-size: 10.5px; color: var(--soft);
+  text-transform: uppercase; letter-spacing: 0.04em; background: var(--panel);
+}

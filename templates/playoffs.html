@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_filters.html" import page_chrome %}
+{% block title %}Playoffs — Rocky Mountain News{% endblock %}
+
+{# One competitor row. `tally` picks which number to show: series wins for a
+   best-of-N, game score for a single game. The winning side is bolded. #}
+{% macro side_row(s, won, tally) %}
+<div class="series-row {{ 'won' if won else 'lost' }}">
+  {% if s %}
+  {% if s.seed is not none %}<span class="seed">{{ s.seed }}</span>{% endif %}
+  <span class="t">{{ s.name }}</span>
+  <b class="n">{% if tally %}{{ s.wins if s.wins is not none else '' }}{% else %}{{ s.score if s.score is not none else '' }}{% endif %}</b>
+  {% else %}<span class="t">Bye</span><b class="n"></b>{% endif %}
+</div>
+{% endmacro %}
+
+{% block content %}
+{{ page_chrome(catalog, entry, sel, 'playoffs', 'Playoffs') }}
+
+{% if not sel %}
+<div class="empty-note">No postseason yet — brackets appear here once the playoffs begin.</div>
+{% else %}
+{% if sel.champion %}
+<div class="champ-banner">
+  <span class="champ-trophy">🏆</span>
+  <span><b>{{ sel.champion }}</b> — {{ sel.label }} champions{% if sel.season %} · {{ sel.season }}{% endif %}</span>
+</div>
+{% endif %}
+<div class="bracket">
+  {% for rnd in sel.rounds %}
+  <section class="bracket-round">
+    <h2 class="sect">{{ rnd.name }}</h2>
+    <div class="series-grid">
+      {% for s in rnd.series %}
+      {% set tally = s.best_of and s.best_of > 1 %}
+      <div class="series-card">
+        {{ side_row(s.top, s.winner == 'top', tally) }}
+        {{ side_row(s.bot, s.winner == 'bot', tally) }}
+        {% if s.best_of and s.best_of > 1 %}<div class="series-meta">Best of {{ s.best_of }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

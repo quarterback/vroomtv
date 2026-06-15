@@ -349,6 +349,34 @@ def standings():
                            sel=sel, confs=confs, sel_conf=sel_conf)
 
 
+@app.route("/playoffs")
+def playoffs():
+    """Postseason brackets, one league at a time (ESPN-style sport/league
+    picker). Every sport feeds the same normalized bracket shape (see
+    adapters/bracket.py), so this route is sport-agnostic — it just collects
+    brackets and the template renders whatever size/detail each carries."""
+    catalog = []
+    bb = baseball.get_playoffs()
+    if bb:
+        catalog.append({"sport": "Baseball", "leagues": bb})
+    vb = viperball.get_playoffs()
+    if vb:
+        catalog.append({"sport": "Viperball", "leagues": vb})
+    tn = tennis.get_playoffs()
+    if tn:
+        catalog.append({"sport": "Tennis", "leagues": tn})
+    for sport in zengm_feeds.sports():
+        leagues = []
+        for feed in zengm_feeds.feeds_for(sport):
+            leagues.extend(zengm_feeds.module(feed).playoffs(feed))
+        if leagues:
+            catalog.append({"sport": sport, "leagues": leagues})
+    for c in catalog:
+        c["leagues"].sort(key=lambda l: l["tier"] != "Pro")  # Pro first
+    entry, sel = _pick(catalog)
+    return render_template("playoffs.html", catalog=catalog, entry=entry, sel=sel)
+
+
 def _tennis_leader_boards() -> list[dict]:
     """Tennis leagues as generic boards: portal universes get Player
     Power (STR) + Top Prospects; non-portal leagues get singles wins."""
