@@ -44,7 +44,7 @@ FEEDS = [
      "env": "FLOORBALL_LEAGUE_FILE", "engine": "rink"},
     # ── Basketball engine (BBGM) ──────────────────────────────────────────
     {"key": "nba", "sport": "Basketball", "league": "NBA",
-     "env": "NBA_LEAGUE_FILE", "engine": "basketball"},
+     "env": "NBA_LEAGUE_FILE", "engine": "basketball", "box": True},
     {"key": "wnba", "sport": "Basketball", "league": "WNBA",
      "env": "WNBA_LEAGUE_FILE", "engine": "basketball"},
     {"key": "cbb-men", "sport": "Men's College Basketball", "league": "NCAA",
@@ -95,6 +95,12 @@ def use_bundled_defaults() -> None:
             if p:
                 os.environ[f["env"]] = p
 
+
+# Register per-league box-score opt-ins (feeds with "box": True keep their
+# per-game box lines, so their games are clickable to a box-score page).
+for _f in FEEDS:
+    if _f.get("box"):
+        zengm_common.BOX_KEEP_ENVS.add(_f["env"])
 
 use_bundled_defaults()
 

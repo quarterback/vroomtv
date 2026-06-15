@@ -24,6 +24,21 @@ import threading
 KEEP_BOX_SCORES = False
 KEEP_BOX_MAX_BYTES = 120_000_000
 
+# Per-league opt-in: env-var names whose league should keep box scores even
+# though the global default is off (so clickable box-score pages can be enabled
+# for a specific small league — e.g. a bundled NBA file — without re-bloating
+# the huge college exports). Populated by zengm_feeds from each feed's "box"
+# flag. Still subject to KEEP_BOX_MAX_BYTES.
+BOX_KEEP_ENVS: set[str] = set()
+
+
+def _keep_box(env_var: str, size: int | None) -> bool:
+    """Whether box scores are retained for this league: the global policy or a
+    per-league opt-in, and only when the file is under the size cap."""
+    if size is None or size > KEEP_BOX_MAX_BYTES:
+        return False
+    return KEEP_BOX_SCORES or env_var in BOX_KEEP_ENVS
+
 # env-var -> (mtime, lean-league)
 _cache: dict[str, tuple[float, dict]] = {}
 _lock = threading.Lock()
@@ -57,11 +72,9 @@ def _file_size(env_var: str) -> int | None:
 
 def has_box(env_var: str) -> bool:
     """Whether this feed's games should be clickable — only when box scores
-    are retained at all (off by hub policy) and the file is small enough."""
-    if not KEEP_BOX_SCORES:
-        return False
-    size = _file_size(env_var)
-    return size is not None and size <= KEEP_BOX_MAX_BYTES
+    are retained (global policy or a per-league opt-in) and the file is small
+    enough."""
+    return _keep_box(env_var, _file_size(env_var))
 
 
 def _project(d: dict, keep_box: bool) -> dict:
@@ -144,24 +157,25 @@ def load(env_var: str) -> dict | None:
         raw = _load_json(path)
     except (OSError, json.JSONDecodeError, gzip.BadGzipFile):
         return None
-    keep_box = KEEP_BOX_SCORES and os.path.getsize(path) <= KEEP_BOX_MAX_BYTES
-    lean = _project(raw, keep_box=keep_box)
+    lean = _project(raw, keep_box=_keep_box(env_var, os.path.getsize(path)))
     del raw
     with _lock:
         _cache[env_var] = (mtime, lean)
     return lean
 
 
-def project_file(src_path: str, dst_path: str) -> bool:
+def project_file(src_path: str, dst_path: str, keep_box: bool | None = None) -> bool:
     """Parse a raw ZenGM export and write the lean projection to ``dst_path``
     (atomically), so box-score bulk never persists on disk. Used by the upload
-    route: a 266 MB export lands as a few-MB lean file. Returns False if the
-    source won't parse as JSON (caller should fall back to the raw bytes)."""
+    route: a 266 MB export lands as a few-MB lean file. ``keep_box`` overrides
+    the global policy (used to bundle a league *with* box scores). Returns
+    False if the source won't parse as JSON (caller falls back to raw bytes)."""
     try:
         raw = _load_json(src_path)
     except (OSError, json.JSONDecodeError, gzip.BadGzipFile):
         return False
-    keep_box = KEEP_BOX_SCORES and os.path.getsize(src_path) <= KEEP_BOX_MAX_BYTES
+    if keep_box is None:
+        keep_box = KEEP_BOX_SCORES and os.path.getsize(src_path) <= KEEP_BOX_MAX_BYTES
     lean = _project(raw, keep_box=keep_box)
     del raw
     tmp = dst_path + ".lean.tmp"
