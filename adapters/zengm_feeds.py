@@ -33,7 +33,7 @@ ENGINES = {
 FEEDS = [
     # ── Hockey engine (ZGMH) ──────────────────────────────────────────────
     {"key": "nhl", "sport": "Hockey", "league": "NHL",
-     "env": "NHL_LEAGUE_FILE", "engine": "rink"},
+     "env": "NHL_LEAGUE_FILE", "engine": "rink", "box": True},
     {"key": "pwhl", "sport": "Hockey", "league": "PWHL",
      "env": "PWHL_LEAGUE_FILE", "engine": "rink"},
     {"key": "box-lacrosse", "sport": "Box Lacrosse", "league": "NLL",
