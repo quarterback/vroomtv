@@ -69,6 +69,36 @@ def enabled() -> list[dict]:
     return out
 
 
+# ── repo-bundled league files ─────────────────────────────────────────────
+# A ZenGM league has no live endpoint to sync from (unlike the SQLite sims),
+# so the simplest way to publish one is to commit it: drop the export at
+# data/<key>.json (or .json.gz — load() sniffs gzip) and it ships in the image
+# (`COPY . .`) and renders with zero env vars or uploads. An explicit
+# $<env> still wins, so a live upload can override the bundled copy.
+_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "data"))
+
+
+def _bundled_path(key: str) -> str | None:
+    for name in (f"{key}.json", f"{key}.json.gz"):
+        p = os.path.join(_DATA_DIR, name)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def use_bundled_defaults() -> None:
+    """Point each feed's env var at its committed data/<key> file when the env
+    var isn't already set, so the rest of the code path is unchanged."""
+    for f in FEEDS:
+        if not os.environ.get(f["env"]):
+            p = _bundled_path(f["key"])
+            if p:
+                os.environ[f["env"]] = p
+
+
+use_bundled_defaults()
+
+
 def by_key(key: str) -> dict | None:
     return next((f for f in FEEDS if f["key"] == key), None)
 
