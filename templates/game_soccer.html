@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ away }} {{ away_goals }}–{{ home_goals }} {{ home }} — Rocky Mountain News{% endblock %}
+{% block content %}
+
+<div class="game-header">
+  <span class="kicker">Soccer &middot; {{ league_label }}</span>
+  <div class="matchup">
+    <div class="side {{ 'won' if (away_goals or 0) > (home_goals or 0) else 'lost' }}">
+      <span class="team">{{ away }}</span><span class="big">{{ away_goals }}</span>
+    </div>
+    <span class="status">Final</span>
+    <div class="side {{ 'won' if (home_goals or 0) > (away_goals or 0) else 'lost' }}">
+      <span class="big">{{ home_goals }}</span><span class="team">{{ home }}</span>
+    </div>
+  </div>
+</div>
+
+{% if duel %}
+<section>
+  <h2 class="sect">{{ away }} vs {{ home }}</h2>
+  <div class="duel">
+    {% for s in duel %}
+    <div class="duel-row">
+      <span class="duel-label">{{ s.label }}</span>
+      <div class="duel-line">
+        <span class="duel-num">{{ s.a }}</span>
+        <div class="duel-bar"><i style="width:{{ s.a_pct }}%"></i></div>
+        <span class="duel-num">{{ s.b }}</span>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="duel-key"><span class="k-away">▮ {{ away }}</span><span class="k-home">▮ {{ home }}</span></div>
+  </div>
+</section>
+{% endif %}
+
+{% if ladder %}
+<section>
+  <h2 class="sect">{{ league_label }} table</h2>
+  <div class="table-scroll"><table class="data-table full">
+    <thead><tr><th class="n">#</th><th>Club</th><th class="n">P</th><th class="n">W</th><th class="n">D</th><th class="n">L</th><th class="n">GD</th><th class="n">Pts</th></tr></thead>
+    <tbody>
+    {% for t in ladder %}
+    <tr{% if t.team in (home, away) %} class="hl"{% endif %}>
+        <td class="n">{{ t.pos or loop.index }}</td>
+        <td class="t">{{ t.team }}</td>
+        <td class="n">{{ t.played }}</td>
+        <td class="n">{{ t.won }}</td>
+        <td class="n">{{ t.drawn }}</td>
+        <td class="n">{{ t.lost }}</td>
+        <td class="n">{{ '%+d' | format(t.gd) if t.gd else 0 }}</td>
+        <td class="n"><b>{{ t.points }}</b></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+
+{% if source_url %}
+<div class="meta mt-sm">Match data from <a href="{{ source_url }}" target="_blank" rel="noopener">open-football</a>.</div>
+{% endif %}
+{% endblock %}
