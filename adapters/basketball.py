@@ -55,7 +55,7 @@ def recent_scores(cfg: dict, limit: int = 15) -> list[dict]:
             "id": g["gid"], "league": label,
             "key": cfg["key"], "sport_label": cfg["sport"],
             "season": season, "day": g.get("day", 0),
-            "game_date": f"{season} · Day {g.get('day', 0)}",
+            "game_date": f"{z.season_label(season)} · Day {g.get('day', 0)}",
             "home_name": home.get("name", "?"), "home_abbrev": home.get("abbrev", ""),
             "away_name": away.get("name", "?"), "away_abbrev": away.get("abbrev", ""),
             "home_score": g["teams"][0].get("pts", 0),
@@ -253,7 +253,7 @@ def game_detail(cfg: dict, game_id: int) -> dict[str, Any] | None:
         "away_score": g["teams"][1].get("pts", 0),
         "is_playoff": bool(g.get("playoffs")),
         "overtimes": g.get("overtimes", 0) or 0,
-        "game_date": f"{g.get('season')} · Day {g.get('day', 0)}",
+        "game_date": f"{z.season_label(g.get('season'))} · Day {g.get('day', 0)}",
     }
     rows = _standings_rows(cfg)
     divs = {t["division"] for t in rows if t["name"] in (game["home_name"], game["away_name"])}
