@@ -127,6 +127,28 @@
 </section>
 {% endif %}
 
+{% elif sel.kind == 'soccer' %}
+{# Association football: P W D L GD Pts, ranked by points (rows arrive in
+   table order from open-football). #}
+<section>
+  <h2 class="sect">{{ sel.label }}</h2>
+  <div class="table-scroll"><table class="data-table full">
+    <thead><tr><th class="n">#</th><th>Club</th><th class="n">P</th><th class="n">W</th><th class="n">D</th><th class="n">L</th><th class="n">GD</th><th class="n">Pts</th></tr></thead>
+    <tbody>
+    {% for t in sel.teams %}
+    <tr><td class="n">{{ t.pos or loop.index }}</td>
+        <td class="t">{{ t.team }}</td>
+        <td class="n">{{ t.played }}</td>
+        <td class="n">{{ t.won }}</td>
+        <td class="n">{{ t.drawn }}</td>
+        <td class="n">{{ t.lost }}</td>
+        <td class="n">{{ '%+d' | format(t.gd) if t.gd else 0 }}</td>
+        <td class="n"><b>{{ t.points }}</b></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
 {% elif sel.kind == 'tennis' %}
 {# When "All conferences" is selected, group by conference into stacked
    sections. When one conference is picked, show that single table. #}

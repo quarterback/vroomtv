@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from urllib.parse import quote
 from flask import Flask, Response, render_template, abort, jsonify, request
-from adapters import baseball, viperball, tennis, zengm_feeds, desk
+from adapters import baseball, viperball, tennis, zengm_feeds, desk, soccer
 from adapters import zengm_common
 import newsroom
 import sync
@@ -149,6 +149,15 @@ def _ticker(per_sport: int = 8) -> list[dict]:
             "note": "Final",
             "url": f"/game/tennis/{g['source']}/{g['id']}",
         })
+    for g in soccer.get_recent_scores(limit_per_league=per_sport):
+        items.append({
+            "sport": "Soccer", "league": g["league"],
+            "away": g["away_name"][:3].upper(), "home": g["home_name"][:3].upper(),
+            "away_score": g["away_score"], "home_score": g["home_score"],
+            "note": "Final",
+            "url": f"/game/soccer/{quote(g['slug'])}/{quote(str(g['match_id']))}"
+                   if g.get("match_id") else "",
+        })
     for feed in zengm_feeds.enabled():
         click = zengm_feeds.clickable(feed)
         for g in zengm_feeds.module(feed).recent_scores(feed, limit=per_sport):
@@ -200,6 +209,7 @@ def index():
     baseball_scores = baseball.get_recent_scores()
     viperball_scores = viperball.get_recent_scores()
     tennis_scores = tennis.get_recent_scores()
+    soccer_scores = soccer.get_recent_scores()
     # ZenGM front-page sections: one per sport, each with its leagues' scores.
     zengm_sections = []
     for sport in zengm_feeds.sports():
@@ -230,10 +240,12 @@ def index():
         baseball_extra=baseball.get_extra_scores(),
         viperball_scores=viperball_scores,
         tennis_scores=tennis_scores,
+        soccer_scores=soccer_scores,
         zengm_sections=zengm_sections,
         baseball_configured=bool(os.environ.get("BASEBALL_DB")),
         viperball_configured=bool(os.environ.get("VIPERBALL_DB")),
         tennis_configured=bool(os.environ.get("TENNIS_DB")),
+        soccer_configured=soccer.configured(),
     )
 
 
@@ -307,6 +319,11 @@ def standings():
         catalog.append({"sport": "Tennis", "leagues": [
             {"label": lg["league"], "kind": "tennis", "tier": lg["tier"],
              "teams": lg["teams"]} for lg in tn]})
+    sc = soccer.get_standings()
+    if sc:
+        catalog.append({"sport": "Soccer", "leagues": [
+            {"label": lg["league"], "kind": "soccer", "tier": lg["tier"],
+             "teams": lg["teams"]} for lg in sc]})
     for sport in zengm_feeds.sports():
         leagues = []
         for feed in zengm_feeds.feeds_for(sport):
@@ -487,6 +504,21 @@ def scores():
                  for g in games]}
             for label, games in by_tn.items()]})
 
+    soc = soccer.get_recent_scores(limit_per_league=120)
+    by_soc: dict = {}
+    for g in soc:
+        by_soc.setdefault((g["league"], g["slug"], g["tier"]), []).append(g)
+    if by_soc:
+        catalog.append({"sport": "Soccer", "leagues": [
+            {"label": label, "tier": tier, "games": [
+                {"away": g["away_name"], "home": g["home_name"],
+                 "ascore": g["away_score"], "hscore": g["home_score"],
+                 "url": f"/game/soccer/{quote(slug)}/{quote(str(g['match_id']))}"
+                        if g.get("match_id") else "",
+                 "group": "Recent results", "conf": "", "note": ""}
+                for g in games]}
+            for (label, slug, tier), games in by_soc.items()]})
+
     for sport in zengm_feeds.sports():
         sleagues = []
         for feed in zengm_feeds.feeds_for(sport):
@@ -542,6 +574,11 @@ def leaders():
     tn_leagues = _tennis_leader_boards()
     if tn_leagues:
         catalog.append({"sport": "Tennis", "leagues": tn_leagues})
+    soc_boards = soccer.get_leader_boards()
+    if soc_boards:
+        catalog.append({"sport": "Soccer", "leagues": [
+            {"label": lg["label"], "tier": lg["tier"], "boards": lg["boards"]}
+            for lg in soc_boards]})
     for sport in zengm_feeds.sports():
         leagues = []
         for feed in zengm_feeds.feeds_for(sport):
@@ -748,3 +785,14 @@ def game_tennis(source: str, dual_id: int):
                            {"l": a_lines, "s": a_sets, "g": a_games},
                            [("Lines won", "l"), ("Sets won", "s"), ("Games won", "g")])
     return render_template("game_tennis.html", **detail)
+
+
+@app.route("/game/soccer/<slug>/<match_id>")
+def game_soccer(slug: str, match_id: str):
+    detail = soccer.get_game_detail(slug, match_id)
+    if not detail:
+        abort(404)
+    detail["duel"] = _duel(
+        {"goals": detail["home_goals"]}, {"goals": detail["away_goals"]},
+        [("Goals", "goals")])
+    return render_template("game_soccer.html", **detail)

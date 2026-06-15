@@ -14,6 +14,9 @@ Config (env):
   BASEBALL_SYNC_URL     e.g. https://superinnin.gs/export/db
   VIPERBALL_SYNC_URL    e.g. https://viperball.xyz/export/db
   TENNIS_SYNC_URL       e.g. https://pctennis.xyz/export/db
+  SOCCER_BASE_URL       open-football base (default in soccer_feeds); soccer
+                        is HTML-scraped, not a DB feed, so it has no
+                        *_SYNC_URL/*_DB — see adapters/soccer.py
   SYNC_INTERVAL_MIN     auto-sync period; 0 or unset disables the timer
 """
 from __future__ import annotations
@@ -152,6 +155,16 @@ def sync_all() -> dict:
                 results["viperball_kenpom_pruned"] = pruned
         except Exception as e:
             log.info("viperball kenpom fanout skipped: %s", e)
+
+    # Soccer: open-football has no JSON API, so scrape its league pages into
+    # a JSON cache. HTML-scrape, not a DB download — best-effort, never blocks
+    # the SQLite feeds, and keeps the last good cache if the source is down.
+    try:
+        from adapters import soccer
+        results["soccer"] = soccer.refresh()
+    except Exception as e:  # noqa: BLE001
+        results["soccer"] = f"error: {e}"
+        log.warning("soccer scrape failed: %s", e)
 
     if any(v.startswith("ok") for v in results.values()):
         # Warm off-thread: the rebuilds are heavy and the /sync response

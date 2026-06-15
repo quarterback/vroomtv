@@ -20,6 +20,10 @@ primary_region = 'ams'
   BASEBALL_PORTAL_URL = 'https://superinnin.gs'
   PICKS_DB = '/picks_data/picks.db'
   PORT = '8080'
+  # Soccer feed: scraped from a self-hosted open-football instance (no JSON
+  # API). sync.py writes data/soccer.json; pages read that cache.
+  SOCCER_BASE_URL = 'https://football.superinnings.com'
+  SOCCER_DATA = '/app/data/soccer.json'
   SYNC_INTERVAL_MIN = '30'
   TENNIS_DB = '/app/data/tennis.db'
   TENNIS_SYNC_URL = 'https://pctennis.xyz/export/db'
