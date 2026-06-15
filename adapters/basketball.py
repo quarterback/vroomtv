@@ -19,7 +19,7 @@ from typing import Any
 
 from adapters import zengm_common as z
 
-STANDINGS_KIND = "baseball"
+STANDINGS_KIND = "zengm"
 GAME_TEMPLATE = "game_basketball.html"
 _DUEL_PAIRS = [("Points", "pts"), ("Rebounds", "reb"), ("Assists", "ast"),
                ("Steals", "stl"), ("Blocks", "blk"), ("Turnovers", "tov")]
@@ -83,21 +83,26 @@ def _standings_rows(cfg: dict) -> list[dict]:
         if not s:
             continue
         ident = teams.get(t["tid"], {})
+        w, l = s.get("won", 0) or 0, s.get("lost", 0) or 0
         rows.append({
             "name": ident.get("name", "?"), "abbrev": ident.get("abbrev", ""),
-            "wins": s.get("won", 0) or 0, "losses": s.get("lost", 0) or 0,
-            "league": ident.get("conf", ""), "division": ident.get("division", ""),
+            "wins": w, "losses": l,
+            "conf": ident.get("conf", ""), "division": ident.get("division", ""),
+            "pct": (w / (w + l)) if (w + l) else 0.0,
         })
     return rows
 
 
 def standings(cfg: dict) -> list[dict]:
-    """Catalog-ready league entry (baseball kind: W/L/Pct/GB by conf→div)."""
+    """Catalog-ready league entry rendered conference -> division. Basketball
+    columns: W/L/Pct, ranked by win percentage."""
     rows = _standings_rows(cfg)
     if not rows:
         return []
-    return [{"label": league_label(cfg), "kind": STANDINGS_KIND,
-             "tier": "Pro", "rows": rows}]
+    return [{"label": league_label(cfg), "kind": STANDINGS_KIND, "tier": "Pro",
+             "teams": rows, "sort": "pct", "reverse": True,
+             "cols": [("W", "wins", None), ("L", "losses", None),
+                      ("Pct", "pct", "%.3f")]}]
 
 
 # ── leaders ──────────────────────────────────────────────────────────────

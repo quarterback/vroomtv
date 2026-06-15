@@ -65,24 +65,31 @@
   </table></div>
 </section>
 
-{% elif sel.kind == 'hockey' %}
-{# Hockey: one table per division, ranked by points (2·W + OTL + T). #}
+{% elif sel.kind == 'zengm' %}
+{# ZenGM sports (hockey, basketball, the rink pack, …): Conference → Division,
+   with the stat columns and sort supplied by the adapter (sel.cols / sel.sort).
+   Each col is (label, key, printf-fmt-or-none); the sort column is bolded. #}
 <div class="stack">
-  {% for division, teams in sel.teams | groupby('division') %}
+  {% for conf, cteams in sel.teams | groupby('conf') %}
   <section>
-    <h2 class="sect">{{ sel.label }}{% if division and division != sel.label %} &middot; {{ division }}{% endif %}</h2>
+    <h2 class="sect">{{ conf or sel.label }}</h2>
+    {% for division, dteams in cteams | groupby('division') %}
     <div class="table-scroll"><table class="data-table full">
-      <thead><tr><th>Team</th><th class="n">GP</th><th class="n">W</th><th class="n">L</th><th class="n">OTL</th><th class="n">PTS</th><th class="n">Strk</th></tr></thead>
+      <thead><tr><th>{{ division or 'Division' }}</th>
+        {% for label, key, fmt in sel.cols %}<th class="n">{{ label }}</th>{% endfor %}
+      </tr></thead>
       <tbody>
-      {% for t in teams | sort(attribute='pts', reverse=true) %}
+      {% for t in dteams | sort(attribute=sel.sort, reverse=sel.reverse) %}
       <tr><td class="t">{{ t.name }}</td>
-          <td class="n">{{ t.wins + t.losses + t.otl + t.ties }}</td>
-          <td class="n">{{ t.wins }}</td><td class="n">{{ t.losses }}</td>
-          <td class="n">{{ t.otl }}</td><td class="n"><b>{{ t.pts }}</b></td>
-          <td class="n">{% if t.streak %}{{ t.streak_type }}{{ t.streak }}{% else %}&mdash;{% endif %}</td></tr>
+        {% for label, key, fmt in sel.cols %}
+        {% set v = t.get(key, 0) %}
+        {% set disp = (fmt | format(v or 0)) if fmt else v %}
+        <td class="n">{% if key == sel.sort %}<b>{{ disp }}</b>{% else %}{{ disp }}{% endif %}</td>
+        {% endfor %}</tr>
       {% endfor %}
       </tbody>
     </table></div>
+    {% endfor %}
   </section>
   {% endfor %}
 </div>
