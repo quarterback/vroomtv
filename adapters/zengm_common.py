@@ -197,6 +197,17 @@ def ga(league: dict, key: str, default=None):
     return val
 
 
+def season_label(year) -> str:
+    """ZenGM stores a season as one integer, but hockey/basketball seasons span
+    two calendar years — the user's convention is that ``2026`` is the 2026-27
+    season. Render the split-year label (``2026`` -> ``2026-27``)."""
+    try:
+        y = int(year)
+    except (TypeError, ValueError):
+        return str(year)
+    return f"{y}-{(y + 1) % 100:02d}"
+
+
 def current_season(league: dict) -> int:
     """The season to display. With box scores, the latest season that has
     games. Without them (e.g. a big college league exported without box
@@ -289,7 +300,7 @@ def playoff_bracket(league: dict, label: str, tier: str = "Pro") -> dict | None:
             rounds.append({"name": B.round_name(idx, total, by_conf), "series": srs})
     if not rounds:
         return None
-    return B.bracket(label, rounds, tier=tier, season=season,
+    return B.bracket(label, rounds, tier=tier, season=season_label(season),
                      champion=B.champion_of(rounds))
 
 
