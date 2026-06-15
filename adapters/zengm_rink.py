@@ -22,8 +22,8 @@ from typing import Any
 from adapters import zengm_common as z
 
 # How standings/box scores for this engine are rendered (read by app.py +
-# zengm_feeds). Hockey-style standings (W/L/OTL/PTS), rink box-score template.
-STANDINGS_KIND = "hockey"
+# zengm_feeds). Conference -> division standings, rink box-score template.
+STANDINGS_KIND = "zengm"
 GAME_TEMPLATE = "game_zgmh.html"
 # Head-to-head bars on the game page (away vs home team box totals).
 _DUEL_PAIRS = [("Shots", "s"), ("Hits", "hit"), ("Blocks", "blk"),
@@ -132,12 +132,15 @@ def _standings_rows(cfg: dict) -> list[dict]:
 
 
 def standings(cfg: dict) -> list[dict]:
-    """Catalog-ready league entries (hockey kind: W/L/OTL/PTS by division)."""
+    """Catalog-ready league entry rendered conference -> division. Hockey
+    columns: W/L/OTL/PTS, ranked by points."""
     rows = _standings_rows(cfg)
     if not rows:
         return []
-    return [{"label": league_label(cfg), "kind": STANDINGS_KIND,
-             "tier": "Pro", "teams": rows}]
+    return [{"label": league_label(cfg), "kind": STANDINGS_KIND, "tier": "Pro",
+             "teams": rows, "sort": "pts", "reverse": True,
+             "cols": [("W", "wins", None), ("L", "losses", None),
+                      ("OTL", "otl", None), ("PTS", "pts", None)]}]
 
 
 # ── leaders ──────────────────────────────────────────────────────────────
