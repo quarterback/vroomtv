@@ -72,7 +72,8 @@ def _project(d: dict, keep_box: bool) -> dict:
     season = current_season(d)
     ga = d.get("gameAttributes") or {}
     lean_ga = {k: ga[k] for k in ("confs", "divs", "season", "numGames",
-                                  "phase", "startingSeason") if k in ga}
+                                  "numGamesPlayoffSeries", "phase",
+                                  "startingSeason") if k in ga}
     teams = [{k: t.get(k) for k in ("tid", "cid", "did", "region", "name",
                                     "abbrev", "imgURL", "colors", "disabled",
                                     "seasons")}
@@ -94,7 +95,32 @@ def _project(d: dict, keep_box: bool) -> dict:
             lg["teams"] = [{"tid": t.get("tid"), "pts": t.get("pts")} for t in gt]
         games.append(lg)
     return {"meta": d.get("meta"), "gameAttributes": lean_ga,
-            "teams": teams, "players": players, "games": games}
+            "teams": teams, "players": players, "games": games,
+            "playoffSeries": _lean_playoff_series(d, season)}
+
+
+def _lean_playoff_series(d: dict, season: int) -> list[dict]:
+    """Keep only the current season's bracket, trimmed to the fields the
+    bracket builder reads (each side's tid/seed/won + the byConf flag), so the
+    postseason survives projection without dragging the per-series gids/points."""
+    ps = next((s for s in d.get("playoffSeries") or []
+               if s.get("season") == season), None)
+    if not ps:
+        return []
+    rounds = []
+    for rnd in ps.get("series") or []:
+        lean_rnd = []
+        for m in rnd or []:
+            if not m:
+                lean_rnd.append(m)
+                continue
+            lm = {}
+            for key in ("home", "away"):
+                if m.get(key):
+                    lm[key] = {k: m[key].get(k) for k in ("tid", "seed", "won")}
+            lean_rnd.append(lm)
+        rounds.append(lean_rnd)
+    return [{"season": season, "byConf": ps.get("byConf"), "series": rounds}]
 
 
 def load(env_var: str) -> dict | None:
@@ -206,6 +232,51 @@ def league_label(league: dict, fallback: str = "League") -> str:
             return divs[0].get("name") or confs[0].get("name") or fallback
         return confs[0].get("name") or fallback
     return fallback
+
+
+def playoff_bracket(league: dict, label: str, tier: str = "Pro") -> dict | None:
+    """The current season's bracket in the shared ``adapters.bracket`` shape,
+    or None when there's no postseason in the file. Works for any ZenGM engine
+    (basketball, the rink sports) since they all store ``playoffSeries`` the
+    same way: series are best-of-N (``numGamesPlayoffSeries`` per round), each
+    side carries ``tid``/``seed``/``won``."""
+    from adapters import bracket as B
+    season = current_season(league)
+    ps = next((s for s in (league.get("playoffSeries") or [])
+               if s.get("season") == season), None)
+    rounds_raw = (ps or {}).get("series") or []
+    if not rounds_raw:
+        return None
+    teams = team_index(league)
+    by_conf = bool(ps.get("byConf"))
+    lengths = ga(league, "numGamesPlayoffSeries") or []
+    total = len(rounds_raw)
+
+    def mk_side(x):
+        if not x:
+            return None
+        ident = teams.get(x.get("tid"), {})
+        return B.side(ident.get("name", "?"), ident.get("abbrev", ""),
+                      seed=x.get("seed"), wins=x.get("won", 0) or 0)
+
+    rounds = []
+    for idx, rnd in enumerate(rounds_raw):
+        best_of = lengths[idx] if idx < len(lengths) else None
+        srs = []
+        for m in rnd or []:
+            if not m:
+                continue
+            top, bot = mk_side(m.get("home")), mk_side(m.get("away"))
+            if not top and not bot:
+                continue
+            srs.append(B.series(top, bot, best_of,
+                                B.winner_by_wins(top, bot, best_of)))
+        if srs:
+            rounds.append({"name": B.round_name(idx, total, by_conf), "series": srs})
+    if not rounds:
+        return None
+    return B.bracket(label, rounds, tier=tier, season=season,
+                     champion=B.champion_of(rounds))
 
 
 def duel(stats_a: dict, stats_b: dict, pairs: list) -> list[dict]:

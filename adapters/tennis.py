@@ -133,6 +133,79 @@ def get_standings() -> list[dict]:
     return out
 
 
+def _tennis_bracket(B, label: str, tier: str, rows: list) -> dict | None:
+    """Group postseason dual rows (ordered by round_no, bpos) into the shared
+    bracket shape. Tennis duals are single matches, so the dual points are the
+    tally and best_of is 1."""
+    from collections import OrderedDict
+    if not rows:
+        return None
+    by_round: "OrderedDict[int, list]" = OrderedDict()
+    for r in rows:
+        by_round.setdefault(r["round_no"], []).append(r)
+    ordered = list(by_round.items())
+    total = len(ordered)
+    rounds = []
+    for idx, (_rno, drows) in enumerate(ordered):
+        srs = []
+        for r in drows:
+            keys = r.keys()
+            top = B.side(r["home_name"],
+                         r["home_abbrev"] if "home_abbrev" in keys else "",
+                         score=r["home_points"])
+            bot = B.side(r["away_name"],
+                         r["away_abbrev"] if "away_abbrev" in keys else "",
+                         score=r["away_points"])
+            srs.append(B.series(top, bot, best_of=1,
+                                winner=B.winner_by_score(top, bot)))
+        name = (drows[0]["round"] or "").strip() or B.round_name(idx, total)
+        rounds.append({"name": name, "series": srs})
+    return B.bracket(label, rounds, tier=tier, champion=B.champion_of(rounds))
+
+
+def get_playoffs() -> list[dict]:
+    """Postseason brackets in the shared adapters.bracket shape — the non-'REG'
+    rounds of each GTT league and NCAA season."""
+    from adapters import bracket as B
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return []
+    out = []
+    try:
+        conn = _conn(path)
+        for lg in conn.execute("SELECT id, name FROM gtt_leagues ORDER BY id").fetchall():
+            rows = conn.execute("""
+                SELECT d.round, d.round_no, d.bpos, d.home_points, d.away_points,
+                       hf.name AS home_name, hf.abbrev AS home_abbrev,
+                       af.name AS away_name, af.abbrev AS away_abbrev
+                FROM gtt_duals d
+                JOIN gtt_franchises hf ON hf.id=d.home AND hf.league_id=d.league_id
+                JOIN gtt_franchises af ON af.id=d.away AND af.league_id=d.league_id
+                WHERE d.league_id=? AND d.status='final'
+                  AND IFNULL(d.round,'REG')<>'REG'
+                ORDER BY d.round_no, d.bpos
+            """, (lg["id"],)).fetchall()
+            br = _tennis_bracket(B, lg["name"], "Pro", rows)
+            if br:
+                out.append(br)
+        for s in conn.execute("SELECT id, division, gender FROM seasons ORDER BY id").fetchall():
+            label = f"{s['division'].upper()} {s['gender'].title()}"
+            rows = conn.execute("""
+                SELECT round, round_no, bpos, home_points, away_points,
+                       home AS home_name, away AS away_name
+                FROM duals
+                WHERE season_id=? AND status='final' AND IFNULL(round,'REG')<>'REG'
+                ORDER BY round_no, bpos
+            """, (s["id"],)).fetchall()
+            br = _tennis_bracket(B, label, "College", rows)
+            if br:
+                out.append(br)
+        conn.close()
+    except Exception:
+        return []
+    return out
+
+
 _leaders_cache: dict = {"key": None, "leagues": [], "building": False}
 
 

@@ -355,6 +355,51 @@ def get_standings() -> list[dict]:
     return out
 
 
+def get_playoffs() -> list[dict]:
+    """Postseason brackets in the shared adapters.bracket shape, from each pro
+    league blob's ``playoff_bracket`` (single-game matchups; the score is the
+    tally shown)."""
+    from adapters import bracket as B
+    path = _db_path()
+    if not path or not os.path.exists(path):
+        return []
+    try:
+        conn = _conn(path)
+        leagues = _load_leagues(conn)
+        conn.close()
+    except Exception:
+        return []
+    out = []
+    for lg in leagues:
+        blob = lg["blob"]
+        raw_rounds = blob.get("playoff_bracket") or []
+        if not raw_rounds:
+            continue
+        rounds = []
+        for i, rd in enumerate(raw_rounds):
+            srs = []
+            for m in rd.get("matchups") or []:
+                res = m.get("result") or {}
+                hs = res.get("home_score")
+                as_ = res.get("away_score")
+                top = B.side(m.get("home", ""), score=_num(hs) if hs is not None else None)
+                bot = B.side(m.get("away", ""), score=_num(as_) if as_ is not None else None)
+                wname = res.get("winner_name")
+                if wname and wname == m.get("home"):
+                    winner = "top"
+                elif wname and wname == m.get("away"):
+                    winner = "bot"
+                else:
+                    winner = B.winner_by_score(top, bot)
+                srs.append(B.series(top, bot, best_of=1, winner=winner))
+            name = rd.get("round_name") or B.round_name(i, len(raw_rounds))
+            rounds.append({"name": name, "series": srs})
+        out.append(B.bracket(lg["label"], rounds, tier="Pro",
+                             season=blob.get("year", ""),
+                             champion=blob.get("champion") or B.champion_of(rounds)))
+    return out
+
+
 # Leader boards: (title, sort key, columns as (label, key, fmt|None)).
 # A board only renders when at least one player has a nonzero sort stat,
 # so leagues without e.g. drop kicks don't show an empty table.
