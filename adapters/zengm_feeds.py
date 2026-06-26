@@ -33,7 +33,7 @@ ENGINES = {
 FEEDS = [
     # ── Hockey engine (ZGMH) ──────────────────────────────────────────────
     {"key": "nhl", "sport": "Hockey", "league": "NHL",
-     "env": "NHL_LEAGUE_FILE", "engine": "rink", "box": True},
+     "env": "NHL_LEAGUE_FILE", "engine": "rink", "box": True, "paused": True},
     {"key": "pwhl", "sport": "Hockey", "league": "PWHL",
      "env": "PWHL_LEAGUE_FILE", "engine": "rink"},
     {"key": "box-lacrosse", "sport": "Box Lacrosse", "league": "NLL",
@@ -44,7 +44,7 @@ FEEDS = [
      "env": "FLOORBALL_LEAGUE_FILE", "engine": "rink"},
     # ── Basketball engine (BBGM) ──────────────────────────────────────────
     {"key": "nba", "sport": "Basketball", "league": "NBA",
-     "env": "NBA_LEAGUE_FILE", "engine": "basketball", "box": True},
+     "env": "NBA_LEAGUE_FILE", "engine": "basketball", "box": True, "paused": True},
     {"key": "wnba", "sport": "Basketball", "league": "WNBA",
      "env": "WNBA_LEAGUE_FILE", "engine": "basketball"},
     {"key": "cbb-men", "sport": "Men's College Basketball", "league": "NCAA",
@@ -60,9 +60,13 @@ SPORT_ORDER = ["Hockey", "Basketball", "Men's College Basketball",
 
 
 def enabled() -> list[dict]:
-    """Feeds whose league file is present on disk."""
+    """Feeds whose league file is present on disk. A feed marked ``paused`` is
+    never enabled — it won't load into the hub even if its file or env var is
+    present (used to take a league offline without deleting its registry row)."""
     out = []
     for f in FEEDS:
+        if f.get("paused"):
+            continue
         path = os.environ.get(f["env"])
         if path and os.path.exists(path):
             out.append(f)
@@ -90,6 +94,8 @@ def use_bundled_defaults() -> None:
     """Point each feed's env var at its committed data/<key> file when the env
     var isn't already set, so the rest of the code path is unchanged."""
     for f in FEEDS:
+        if f.get("paused"):
+            continue
         if not os.environ.get(f["env"]):
             p = _bundled_path(f["key"])
             if p:
@@ -99,7 +105,7 @@ def use_bundled_defaults() -> None:
 # Register per-league box-score opt-ins (feeds with "box": True keep their
 # per-game box lines, so their games are clickable to a box-score page).
 for _f in FEEDS:
-    if _f.get("box"):
+    if _f.get("box") and not _f.get("paused"):
         zengm_common.BOX_KEEP_ENVS.add(_f["env"])
 
 use_bundled_defaults()

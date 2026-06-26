@@ -149,19 +149,28 @@ def load(env_var: str) -> dict | None:
         mtime = os.path.getmtime(path)
     except OSError:
         return None
+    # Single-flight the parse under the lock. A raw ZenGM export is huge — a
+    # 60 MB decompressed league file peaks ~285 MB while being parsed — so if
+    # the 8 gunicorn threads each parse the same cold file at once (every page
+    # view loads every enabled league via the ticker), that ~285 MB multiplies
+    # to >1.8 GB and the 512 MB machine OOM-kills the worker before any request
+    # finishes — the page just spins forever. Holding the lock across the parse
+    # means at most one parse runs at a time (peak stays ~one parse); late
+    # arrivals block briefly and then fall straight through to the cache hit. The
+    # parse is a one-time per-upload cost, so the short cold-start wait is well
+    # worth not OOM-looping.
     with _lock:
         hit = _cache.get(env_var)
         if hit and hit[0] == mtime:
             return hit[1]
-    try:
-        raw = _load_json(path)
-    except (OSError, json.JSONDecodeError, gzip.BadGzipFile):
-        return None
-    lean = _project(raw, keep_box=_keep_box(env_var, os.path.getsize(path)))
-    del raw
-    with _lock:
+        try:
+            raw = _load_json(path)
+        except (OSError, json.JSONDecodeError, gzip.BadGzipFile):
+            return None
+        lean = _project(raw, keep_box=_keep_box(env_var, os.path.getsize(path)))
+        del raw
         _cache[env_var] = (mtime, lean)
-    return lean
+        return lean
 
 
 def project_file(src_path: str, dst_path: str, keep_box: bool | None = None) -> bool:
