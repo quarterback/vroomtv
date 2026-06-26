@@ -35,14 +35,15 @@ primary_region = 'ams'
 [http_service]
   internal_port = 8080
   force_https = true
-  # Scale to zero when idle: Fly stops the machine after a period with no
-  # traffic, then auto-starts it on the next incoming request. Avoids paying
-  # for the hub while nobody is viewing it. NOTE: sync.py's periodic feed
-  # pull (every SYNC_INTERVAL_MIN) does NOT run while the machine is stopped;
-  # instead it re-pulls every sim's feed seconds after boot, so stats refresh
-  # on the first visit after an idle period rather than on the 30-min cadence.
+  # Off until manually booted: Fly stops the machine when idle and does NOT
+  # auto-start it on incoming requests, so the hub stays off (no charges)
+  # until you explicitly start it with `fly machine start --app vroomtv` (or
+  # `fly scale count 1`). While stopped, visiting the URL will NOT wake it —
+  # the request fails until you boot it. NOTE: sync.py's periodic feed pull
+  # only runs while the machine is up; on boot it re-pulls every sim's feed,
+  # so stats refresh shortly after you start it.
   auto_stop_machines = 'stop'
-  auto_start_machines = true
+  auto_start_machines = false
   min_machines_running = 0
 
 # picks.db must survive restarts — mount a persistent volume.
