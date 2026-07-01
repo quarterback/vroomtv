@@ -35,14 +35,19 @@ primary_region = 'ams'
 [http_service]
   internal_port = 8080
   force_https = true
-  # Off until manually booted: Fly stops the machine when idle and does NOT
-  # auto-start it on incoming requests, so the hub stays off (no charges)
-  # until you explicitly start it with `fly machine start --app vroomtv` (or
-  # `fly scale count 1`). While stopped, visiting the URL will NOT wake it —
-  # the request fails until you boot it. NOTE: sync.py's periodic feed pull
-  # only runs while the machine is up; on boot it re-pulls every sim's feed,
-  # so stats refresh shortly after you start it.
-  auto_stop_machines = 'stop'
+  # Fully manual on/off — nothing automatic ever touches the machine:
+  #   * auto_stop_machines = 'off'  -> Fly NEVER auto-stops. A machine you
+  #     start stays up while you use it (it will NOT get shut off mid-session
+  #     just because traffic goes quiet). Stop it yourself when done:
+  #     `fly machine stop --app vroomtv` (or `fly scale count 0`).
+  #   * auto_start_machines = false -> a stopped machine is NOT woken by
+  #     incoming requests, so the hub stays off (no charges) until you start
+  #     it with `fly machine start --app vroomtv` (or `fly scale count 1`).
+  # Trade-off: since nothing auto-stops it, YOU must remember to stop it when
+  # finished or it keeps running and billing. NOTE: sync.py's periodic feed
+  # pull only runs while the machine is up; on boot it re-pulls every sim's
+  # feed, so stats refresh shortly after you start it.
+  auto_stop_machines = 'off'
   auto_start_machines = false
   min_machines_running = 0
 
